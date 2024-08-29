@@ -1,0 +1,97 @@
+pipeline {
+    agent any
+
+    environment {
+        AWS_CREDENTIALS = credentials('aws_secret_and_access') // Jenkins credentials ID for AWS
+        TF_IN_AUTOMATION = 'true' // Specifies that Terraform runs in automation mode
+    }
+
+    parameters {
+        string(name: 'TERRAFORM_DIR', description: 'Specify the S3 directory for the state file (e.g., ec2, iam, vpc, eip)')
+    }
+
+    stages {
+        stage('Setup Terraform Backend') {
+            steps {
+                script {
+                    def terraformDir = params.TERRAFORM_DIR
+                    if (!terraformDir) {
+                        error "TERRAFORM_DIR parameter is required."
+                    }
+
+                    // Create a dynamic backend.tf with the correct S3 state file path based on TERRAFORM_DIR parameter
+                    writeFile file: "backend.tf", text: """
+terraform {
+  backend "s3" {
+    bucket         = "terraform-aws-thirupathi-test" // S3 bucket name where state file is stored
+    key            = "${terraformDir}/state/terraform.tfstate" // State file path based on TERRAFORM_DIR
+    region         = "ap-south-1" // AWS region of the S3 bucket
+    encrypt        = true
+  }
+}
+"""
+                }
+            }
+        }
+
+        stage('Setup Terraform') {
+            steps {
+                script {
+                    // Initialize Terraform with the generated backend configuration
+                    sh '''
+                    export AWS_ACCESS_KEY_ID=${AWS_CREDENTIALS_USR}
+                    export AWS_SECRET_ACCESS_KEY=${AWS_CREDENTIALS_PSW}
+                    terraform init
+                    '''
+                }
+            }
+        }
+
+        stage('Terraform Plan for Destroy') {
+            steps {
+                script {
+                    // Run Terraform Plan to preview the destroy changes
+                    sh '''
+                    export AWS_ACCESS_KEY_ID=${AWS_CREDENTIALS_USR}
+                    export AWS_SECRET_ACCESS_KEY=${AWS_CREDENTIALS_PSW}
+                    terraform plan -destroy -out=tfplan
+                    '''
+                }
+            }
+        }
+
+        stage('Approval Before Destroy') {
+            steps {
+                script {
+                    // Request manual approval before proceeding with Terraform Destroy
+                    input message: 'Do you want to proceed with Terraform Destroy?', ok: 'Proceed'
+                }
+            }
+        }
+
+        stage('Terraform Destroy') {
+            steps {
+                script {
+                    // Apply the Terraform destroy plan
+                    sh '''
+                    export AWS_ACCESS_KEY_ID=${AWS_CREDENTIALS_USR}
+                    export AWS_SECRET_ACCESS_KEY=${AWS_CREDENTIALS_PSW}
+                    terraform apply -auto-approve tfplan
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Destroy pipeline succeeded!'
+        }
+        failure {
+            echo 'Destroy pipeline failed.'
+        }
+        always {
+            cleanWs()
+        }
+    }
+}
