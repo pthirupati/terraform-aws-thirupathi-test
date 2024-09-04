@@ -11,4 +11,4 @@ prod-sg-Egress-cidr = "0.0.0.0/0"
 prod-web-servers-ami = "ami-0ec0e125bb6c6e8ec"
 prod-web-servers-instance_type = "t2.micro"
 useradd-script = "useradd.sh"
-prod-web-servers-tags = ["Web-server", "App-Server"]
+prod-web-servers-tags = ["Web-server"]
