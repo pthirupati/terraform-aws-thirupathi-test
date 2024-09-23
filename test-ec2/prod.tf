@@ -41,7 +41,7 @@ resource "aws_security_group" "prod-sg" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "HTTPS" {
-  security_group_id = aws_security_group.prod-sg.name
+  security_group_id = aws_security_group.prod-sg.id
   ip_protocol = "tcp"
   cidr_ipv4 = "0.0.0.0/0"
   from_port = 443
@@ -50,7 +50,7 @@ resource "aws_vpc_security_group_ingress_rule" "HTTPS" {
 
 
 resource "aws_vpc_security_group_ingress_rule" "HTTP" {
-  security_group_id = aws_security_group.prod-sg.name
+  security_group_id = aws_security_group.prod-sg.id
   ip_protocol = "tcp"
   cidr_ipv4 = "0.0.0.0/0"
   from_port = 80
@@ -58,7 +58,7 @@ resource "aws_vpc_security_group_ingress_rule" "HTTP" {
 }
 
 resource "aws_vpc_security_group_ingress_rule" "SSH" {
-    security_group_id = aws_security_group.prod-sg.name
+    security_group_id = aws_security_group.prod-sg.id
     ip_protocol = "tcp"
     cidr_ipv4 = "${aws_eip.EIP.public_ip}/32"
     from_port = 22
@@ -67,21 +67,21 @@ resource "aws_vpc_security_group_ingress_rule" "SSH" {
 
 
 resource "aws_vpc_security_group_egress_rule" "All-traffic-egress" {
-    security_group_id = aws_security_group.prod-sg.name
+    security_group_id = aws_security_group.prod-sg.id
     cidr_ipv4 = "0.0.0.0/0"
     ip_protocol = "-1"
 }
 
 
 resource "aws_instance" "Prod-instance" {
-  ami = "ami-0ebfd941bbafe70c6"
+  ami = "ami-0ec0e125bb6c6e8ec"
   instance_type = "t2.micro"
   tags = {
     Name = "Webserver-1"
   }
   security_groups = [ aws_security_group.prod-sg.id ]
   
-  user_data = "/user_data.sh"
+  user_data = file(user_data.sh)
 }
 
 resource "aws_eip_association" "Prod-instance-EIP" {
