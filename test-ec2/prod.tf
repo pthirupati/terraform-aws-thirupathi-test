@@ -80,8 +80,6 @@ resource "aws_instance" "Prod-instance" {
     Name = "Webserver-1"
   }
   security_groups = [ aws_security_group.prod-sg.id ]
-  
-  user_data = file("user_data.sh")
 }
 
 resource "aws_eip_association" "Prod-instance-EIP" {
