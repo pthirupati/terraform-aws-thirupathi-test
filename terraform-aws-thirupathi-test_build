@@ -11,6 +11,22 @@ pipeline {
     }
 
     stages {
+        stage('Start Notification') {
+            steps {
+                script {
+                    emailext(
+                        subject: "Terraform Pipeline Started - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                        body: """
+                        Pipeline started for job: ${env.JOB_NAME} #${env.BUILD_NUMBER}
+                        Terraform Directory: ${params.TERRAFORM_DIR}
+                        """,
+                        recipientProviders: [[$class: 'DevelopersRecipientProvider']],
+                        to: 'awslearning85@gmail.com'
+                    )
+                }
+            }
+        }
+
         stage('Checkout') {
             steps {
                 script {
@@ -76,6 +92,18 @@ terraform {
 
         stage('Approval') {
             steps {
+                script {
+                    emailext(
+                        subject: "Approval Required - Terraform Pipeline ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                        body: """
+                        The Terraform pipeline is waiting for approval.
+                        Terraform Directory: ${params.TERRAFORM_DIR}
+                        State file: s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate
+                        """,
+                        recipientProviders: [[$class: 'DevelopersRecipientProvider']],
+                        to: 'awslearning85@gmail.com'
+                    )
+                }
                 input message: 'Do you want to proceed with Terraform Apply?', ok: 'Proceed'
             }
         }
@@ -97,11 +125,38 @@ terraform {
 
     post {
         success {
+            script {
+                emailext(
+                    subject: "Pipeline Succeeded - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                    body: """
+                    The Terraform pipeline has successfully completed.
+                    Terraform Directory: ${params.TERRAFORM_DIR}
+                    State file: s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate
+                    """,
+                    recipientProviders: [[$class: 'DevelopersRecipientProvider']],
+                    to: 'awslearning85@gmail.com'
+                )
+            }
             echo 'Pipeline succeeded!'
         }
+
         failure {
+            script {
+                emailext(
+                    subject: "Pipeline Failed - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                    body: """
+                    The Terraform pipeline has failed.
+                    Terraform Directory: ${params.TERRAFORM_DIR}
+                    Error: ${currentBuild.rawBuild.log(50).join('\n')}
+                    State file: s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate
+                    """,
+                    recipientProviders: [[$class: 'DevelopersRecipientProvider']],
+                    to: 'awslearning85@gmail.com'
+                )
+            }
             echo 'Pipeline failed.'
         }
+
         always {
             cleanWs()
         }
