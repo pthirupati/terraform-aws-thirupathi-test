@@ -20,7 +20,6 @@ pipeline {
                         Pipeline started for job: ${env.JOB_NAME} #${env.BUILD_NUMBER}
                         Terraform Directory: ${params.TERRAFORM_DIR}
                         """,
-                        recipientProviders: [[$class: 'DevelopersRecipientProvider']],
                         to: 'awslearning85@gmail.com'
                     )
                 }
@@ -100,7 +99,6 @@ terraform {
                         Terraform Directory: ${params.TERRAFORM_DIR}
                         State file: s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate
                         """,
-                        recipientProviders: [[$class: 'DevelopersRecipientProvider']],
                         to: 'awslearning85@gmail.com'
                     )
                 }
@@ -121,6 +119,18 @@ terraform {
                 }
             }
         }
+
+        stage('Test Email') { // New test email stage
+            steps {
+                script {
+                    emailext(
+                        subject: "Test Email from Pipeline - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                        body: "This is a test email from the Jenkins pipeline.",
+                        to: 'awslearning85@gmail.com'
+                    )
+                }
+            }
+        }
     }
 
     post {
@@ -133,7 +143,6 @@ terraform {
                     Terraform Directory: ${params.TERRAFORM_DIR}
                     State file: s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate
                     """,
-                    recipientProviders: [[$class: 'DevelopersRecipientProvider']],
                     to: 'awslearning85@gmail.com'
                 )
             }
@@ -150,7 +159,6 @@ terraform {
                     Error: ${currentBuild.rawBuild.log(50).join('\n')}
                     State file: s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate
                     """,
-                    recipientProviders: [[$class: 'DevelopersRecipientProvider']],
                     to: 'awslearning85@gmail.com'
                 )
             }
