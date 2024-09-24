@@ -17,11 +17,18 @@ pipeline {
                     emailext(
                         subject: "Terraform Pipeline Started - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                         body: """
-                        Pipeline started for job: ${env.JOB_NAME} #${env.BUILD_NUMBER}
-                        Terraform Directory: ${params.TERRAFORM_DIR}
+                        <html>
+                        <body>
+                            <h2>Pipeline Notification</h2>
+                            <p>Pipeline started for job: <strong>${env.JOB_NAME} #${env.BUILD_NUMBER}</strong></p>
+                            <p>Terraform Directory: <strong>${params.TERRAFORM_DIR}</strong></p>
+                        </body>
+                        </html>
                         """,
-                        to: 'awslearning85@gmail.com'
+                        to: 'awslearning85@gmail.com',
+                        mimeType: 'text/html'
                     )
+                    sleep(5) // Wait for 5 second to avoid hitting SES limits
                 }
             }
         }
@@ -95,12 +102,19 @@ terraform {
                     emailext(
                         subject: "Approval Required - Terraform Pipeline ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                         body: """
-                        The Terraform pipeline is waiting for approval.
-                        Terraform Directory: ${params.TERRAFORM_DIR}
-                        State file: s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate
+                        <html>
+                        <body>
+                            <h2>Approval Required</h2>
+                            <p>The Terraform pipeline is waiting for approval.</p>
+                            <p>Terraform Directory: <strong>${params.TERRAFORM_DIR}</strong></p>
+                            <p>State file: <a href="s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate">s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate</a></p>
+                        </body>
+                        </html>
                         """,
-                        to: 'awslearning85@gmail.com'
+                        to: 'awslearning85@gmail.com',
+                        mimeType: 'text/html'
                     )
+                    sleep(5) // Wait for 5 second to avoid hitting SES limits
                 }
                 input message: 'Do you want to proceed with Terraform Apply?', ok: 'Proceed'
             }
@@ -119,32 +133,31 @@ terraform {
                 }
             }
         }
-
-        stage('Test Email') { // New test email stage
-            steps {
-                script {
-                    emailext(
-                        subject: "Test Email from Pipeline - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                        body: "This is a test email from the Jenkins pipeline.",
-                        to: 'awslearning85@gmail.com'
-                    )
-                }
-            }
-        }
     }
 
     post {
         success {
             script {
+                def outputs = sh(script: "cd ${params.TERRAFORM_DIR} && terraform output -json", returnStdout: true).trim()
+
                 emailext(
                     subject: "Pipeline Succeeded - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                     body: """
-                    The Terraform pipeline has successfully completed.
-                    Terraform Directory: ${params.TERRAFORM_DIR}
-                    State file: s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate
+                    <html>
+                    <body>
+                        <h2>Pipeline Status</h2>
+                        <p>The Terraform pipeline has successfully completed.</p>
+                        <p>Terraform Directory: <strong>${params.TERRAFORM_DIR}</strong></p>
+                        <p>State file: <a href="s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate">s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate</a></p>
+                        <h3>Resources Created:</h3>
+                        <pre>${outputs}</pre>
+                    </body>
+                    </html>
                     """,
-                    to: 'awslearning85@gmail.com'
+                    to: 'awslearning85@gmail.com',
+                    mimeType: 'text/html'
                 )
+                sleep(5) // Wait for 5 second to avoid hitting SES limits
             }
             echo 'Pipeline succeeded!'
         }
@@ -154,13 +167,20 @@ terraform {
                 emailext(
                     subject: "Pipeline Failed - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                     body: """
-                    The Terraform pipeline has failed.
-                    Terraform Directory: ${params.TERRAFORM_DIR}
-                    Error: ${currentBuild.rawBuild.log(50).join('\n')}
-                    State file: s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate
+                    <html>
+                    <body>
+                        <h2>Pipeline Status</h2>
+                        <p>The Terraform pipeline has failed.</p>
+                        <p>Terraform Directory: <strong>${params.TERRAFORM_DIR}</strong></p>
+                        <p>Error: <pre>${currentBuild.rawBuild.log(50).join('\n')}</pre></p>
+                        <p>State file: <a href="s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate">s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate</a></p>
+                    </body>
+                    </html>
                     """,
-                    to: 'awslearning85@gmail.com'
+                    to: 'awslearning85@gmail.com',
+                    mimeType: 'text/html'
                 )
+                sleep(5) // Wait for 5 second to avoid hitting SES limits
             }
             echo 'Pipeline failed.'
         }
