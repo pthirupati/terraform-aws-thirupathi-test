@@ -79,7 +79,7 @@ resource "aws_instance" "Prod-instance" {
   tags = {
     Name = "Webserver-1"
   }
-  security_groups = [ aws_security_group.prod-sg.id ]
+  security_groups = [ aws_security_group.prod-sg.name ]
 }
 
 resource "aws_eip_association" "Prod-instance-EIP" {
