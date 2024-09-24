@@ -74,7 +74,7 @@ resource "aws_vpc_security_group_egress_rule" "All-traffic-egress" {
 
 
 resource "aws_instance" "Prod-instance" {
-  ami = "ami-0ec0e125bb6c6e8ec"
+  ami = "ami-0ebfd941bbafe70c6"
   instance_type = "t2.micro"
   tags = {
     Name = "Webserver-1"
