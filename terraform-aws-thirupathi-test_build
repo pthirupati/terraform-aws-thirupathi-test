@@ -4,7 +4,6 @@ pipeline {
     environment {
         AWS_CREDENTIALS = credentials('aws_secret_and_access') // Jenkins credentials ID for AWS
         TF_IN_AUTOMATION = 'true' // Specifies that Terraform runs in automation mode
-        EMAIL_RECIPIENT = 'thirupathi.samu2018@gmail.com'
     }
 
     parameters {
@@ -75,33 +74,9 @@ terraform {
             }
         }
 
-        stage('Start Job Notification') {
-            steps {
-                script {
-                    // Send email notification when the job starts
-                    emailext(
-                        subject: "Job Started: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                        body: """<p>Job: ${env.JOB_NAME}</p>
-                                  <p>Build Number: ${env.BUILD_NUMBER}</p>""",
-                        to: "${EMAIL_RECIPIENT}"
-                    )
-                }
-            }
-        }
-
         stage('Approval') {
             steps {
                 input message: 'Do you want to proceed with Terraform Apply?', ok: 'Proceed'
-                script {
-                    // Send email notification before the approval stage
-                    emailext(
-                        subject: "Approval Stage: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                        body: """<p>Job: ${env.JOB_NAME}</p>
-                                  <p>Build Number: ${env.BUILD_NUMBER}</p>
-                                  <p>Job is about to proceed with Terraform Apply.</p>""",
-                        to: "${EMAIL_RECIPIENT}"
-                    )
-                }
             }
         }
 
@@ -122,33 +97,9 @@ terraform {
 
     post {
         success {
-            script {
-                // Send success email
-                emailext(
-                    subject: "Job Completed Successfully: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                    body: """<p>The job has completed successfully!</p>
-                              <p>Job: ${env.JOB_NAME}</p>
-                              <p>Build Number: ${env.BUILD_NUMBER}</p>
-                              <p>State File Path: ${params.TERRAFORM_DIR}/state/terraform.tfstate</p>""",
-                    to: "${EMAIL_RECIPIENT}"
-                )
-            }
             echo 'Pipeline succeeded!'
         }
         failure {
-            script {
-                // Send failure email with logs
-                def logFile = currentBuild.rawBuild.getLog(100).join("\n")
-                emailext(
-                    subject: "Job Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                    body: """<p>The job has failed.</p>
-                              <p>Job: ${env.JOB_NAME}</p>
-                              <p>Build Number: ${env.BUILD_NUMBER}</p>
-                              <p>Logs:</p>
-                              <pre>${logFile}</pre>""",
-                    to: "${EMAIL_RECIPIENT}"
-                )
-            }
             echo 'Pipeline failed.'
         }
         always {
