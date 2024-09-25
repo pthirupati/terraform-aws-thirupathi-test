@@ -16,7 +16,7 @@ pipeline {
             steps {
                 script {
                     slackSend(channel: '#terraform',
-                              message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline started.",
+                              message: ":white_small_square: *Job:* ${env.JOB_NAME} \n*Build ID:* ${env.BUILD_ID} \n*Pipeline started.*",
                               token: SLACK_CREDENTIALS)
                 }
             }
@@ -89,7 +89,7 @@ terraform {
 
                         // Send Slack notification with the plan initiation message
                         slackSend(channel: '#terraform',
-                                  message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan has been generated.",
+                                  message: ":white_small_square: *Job:* ${env.JOB_NAME} \n*Build ID:* ${env.BUILD_ID} \n*Terraform Plan has been generated.*",
                                   token: SLACK_CREDENTIALS)
                     }
                 }
@@ -103,13 +103,12 @@ terraform {
                         // Upload only the tfplan.txt from the tf-plan directory
                         slackUploadFile(channel: '#terraform',
                                         file: "tfplan.txt",  // Adjusted file path to match the new directory
-                                        initialComment: "Terraform Plan (tfplan.txt) for Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID}",
+                                        initialComment: ":white_small_square: *Terraform Plan (tfplan.txt) for Job:* ${env.JOB_NAME} \n*Build ID:* ${env.BUILD_ID}",
                                         token: SLACK_CREDENTIALS)
                     }
                 }
             }
         }
-
 
         stage('Approval') {
             steps {
@@ -117,7 +116,7 @@ terraform {
                     def inputMessage = "Do you want to proceed with Terraform Apply? Please check the tfplan file above."
                     // Notify Slack about the approval request
                     slackSend(channel: '#terraform',
-                              message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Approval needed for Terraform Apply.",
+                              message: ":warning: *Job:* ${env.JOB_NAME} \n*Build ID:* ${env.BUILD_ID} \n*Approval needed for Terraform Apply.*",
                               token: SLACK_CREDENTIALS)
 
                     // Wait for user input
@@ -138,7 +137,7 @@ terraform {
                         
                         // Send Slack notification with apply output and state file
                         slackSend(channel: '#terraform',
-                                  message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Apply Output:\n${applyOutput}\nState file: s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate",
+                                  message: ":green_heart: *Job:* ${env.JOB_NAME} \n*Build ID:* ${env.BUILD_ID} \n*Terraform Apply Output:* \n${applyOutput} \n*State file:* s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate",
                                   token: SLACK_CREDENTIALS)
                     }
                 }
@@ -149,8 +148,9 @@ terraform {
     post {
         success {
             script {
+                def executionTime = currentBuild.durationString
                 slackSend(channel: '#terraform',
-                          message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline succeeded! State file: s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate",
+                          message: ":tada: *Job:* ${env.JOB_NAME} \n*Build ID:* ${env.BUILD_ID} \n*Pipeline succeeded!* \n*Build Execution Time:* ${executionTime} \n*State file:* s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate",
                           token: SLACK_CREDENTIALS)
             }
             echo 'Pipeline succeeded!'
@@ -158,7 +158,7 @@ terraform {
         failure {
             script {
                 slackSend(channel: '#terraform',
-                          message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline failed. Check the logs for details.",
+                          message: ":red_circle: *Job:* ${env.JOB_NAME} \n*Build ID:* ${env.BUILD_ID} \n*Pipeline failed.* Check the logs for details. :x:",
                           token: SLACK_CREDENTIALS)
             }
             echo 'Pipeline failed.'
@@ -167,10 +167,14 @@ terraform {
             script {
                 // Clean workspace
                 cleanWs()
+                // Notify completion
+                slackSend(channel: '#terraform',
+                          message: ":white_small_square: *Job:* ${env.JOB_NAME} \n*Build ID:* ${env.BUILD_ID} \n*Pipeline has completed execution.*",
+                          token: SLACK_CREDENTIALS)
                 // Check for aborted builds
                 if (currentBuild.result == 'ABORTED') {
                     slackSend(channel: '#terraform',
-                              message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline aborted and job finished. Check the logs for details.",
+                              message: ":warning: *Job:* ${env.JOB_NAME} \n*Build ID:* ${env.BUILD_ID} \n*Pipeline aborted and job finished.* Check the logs for details.",
                               token: SLACK_CREDENTIALS)
                 }
             }
