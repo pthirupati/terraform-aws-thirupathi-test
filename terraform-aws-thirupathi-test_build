@@ -87,9 +87,9 @@ terraform {
                                   message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan has been generated. Sending the tfplan file.",
                                   token: SLACK_CREDENTIALS)
 
-                        // Upload the Terraform tfplan file to Slack
+                        // Upload only the Terraform tfplan file to Slack
                         slackUploadFile(channel: '#terraform',
-                                        file: 'tfplan',
+                                        file: "${WORKSPACE}/${params.TERRAFORM_DIR}/tfplan",
                                         initialComment: "Terraform Plan (tfplan) for Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID}",
                                         token: SLACK_CREDENTIALS)
                     }
