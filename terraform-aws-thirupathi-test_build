@@ -21,7 +21,7 @@ pipeline {
                     }
                 }
                 git branch: 'main', url: 'https://github.com/pthirupati/terraform-aws-thirupathi-test.git'
-                slackSend(channel: '#terraform-notifications', message: "Checkout complete for ${params.TERRAFORM_DIR}.")
+                slackSend(channel: '#terraform', message: "Checkout complete for ${params.TERRAFORM_DIR}.")
             }
         }
 
@@ -44,7 +44,7 @@ terraform {
   }
 }
 """
-                    slackSend(channel: '#terraform-notifications', message: "Terraform backend setup completed for ${params.TERRAFORM_DIR}.")
+                    slackSend(channel: '#terraform', message: "Terraform backend setup completed for ${params.TERRAFORM_DIR}.")
                 }
             }
         }
@@ -58,7 +58,7 @@ terraform {
                         export AWS_SECRET_ACCESS_KEY=${AWS_CREDENTIALS_PSW}
                         terraform init
                         '''
-                        slackSend(channel: '#terraform-notifications', message: "Terraform initialized for ${params.TERRAFORM_DIR}.")
+                        slackSend(channel: '#terraform', message: "Terraform initialized for ${params.TERRAFORM_DIR}.")
                     }
                 }
             }
@@ -73,7 +73,7 @@ terraform {
                         export AWS_SECRET_ACCESS_KEY=${AWS_CREDENTIALS_PSW}
                         terraform plan -out=tfplan
                         '''
-                        slackSend(channel: '#terraform-notifications', message: "Terraform plan completed for ${params.TERRAFORM_DIR}.")
+                        slackSend(channel: '#terraform', message: "Terraform plan completed for ${params.TERRAFORM_DIR}.")
                     }
                 }
             }
@@ -82,7 +82,7 @@ terraform {
         stage('Approval') {
             steps {
                 input message: 'Do you want to proceed with Terraform Apply?', ok: 'Proceed'
-                slackSend(channel: '#terraform-notifications', message: "Approval received to proceed with Terraform Apply for ${params.TERRAFORM_DIR}.")
+                slackSend(channel: '#terraform', message: "Approval received to proceed with Terraform Apply for ${params.TERRAFORM_DIR}.")
             }
         }
 
@@ -95,7 +95,7 @@ terraform {
                         export AWS_SECRET_ACCESS_KEY=${AWS_CREDENTIALS_PSW}
                         terraform apply -auto-approve tfplan
                         '''
-                        slackSend(channel: '#terraform-notifications', message: "Terraform apply completed for ${params.TERRAFORM_DIR}.")
+                        slackSend(channel: '#terraform', message: "Terraform apply completed for ${params.TERRAFORM_DIR}.")
                     }
                 }
             }
@@ -104,11 +104,11 @@ terraform {
 
     post {
         success {
-            slackSend(channel: '#terraform-notifications', message: "Pipeline succeeded for ${params.TERRAFORM_DIR}!")
+            slackSend(channel: '#terraform', message: "Pipeline succeeded for ${params.TERRAFORM_DIR}!")
             echo 'Pipeline succeeded!'
         }
         failure {
-            slackSend(channel: '#terraform-notifications', message: "Pipeline failed for ${params.TERRAFORM_DIR}.")
+            slackSend(channel: '#terraform', message: "Pipeline failed for ${params.TERRAFORM_DIR}.")
             echo 'Pipeline failed.'
         }
         always {
