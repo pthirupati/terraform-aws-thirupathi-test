@@ -3,7 +3,6 @@ pipeline {
 
     environment {
         AWS_CREDENTIALS = credentials('aws_secret_and_access') // Jenkins credentials ID for AWS
-        SLACK_CREDENTIALS = credentials('slack-token') // Jenkins credentials ID for Slack token
         TF_IN_AUTOMATION = 'true' // Specifies that Terraform runs in automation mode
     }
 
@@ -15,7 +14,7 @@ pipeline {
         stage('Notify Start') {
             steps {
                 script {
-                    slackSend(channel: '#terraform', message: "Jenkins job `${env.JOB_NAME}` started. Build #${env.BUILD_NUMBER}", tokenCredentialId: 'SLACK_CREDENTIALS')
+                    slackSend(channel: '#terraform', message: "Jenkins job `${env.JOB_NAME}` started. Build #${env.BUILD_NUMBER}", tokenCredentialId: 'slack-token')
                 }
             }
         }
@@ -86,7 +85,7 @@ terraform {
         stage('Approval') {
             steps {
                 script {
-                    slackSend(channel: '#terraform', message: "Approval required for Terraform Apply in job `${env.JOB_NAME}`. Build #${env.BUILD_NUMBER}", tokenCredentialId: 'SLACK_CREDENTIALS')
+                    slackSend(channel: '#terraform', message: "Approval required for Terraform Apply in job `${env.JOB_NAME}`. Build #${env.BUILD_NUMBER}", tokenCredentialId: 'slack-token')
                 }
                 input message: 'Do you want to proceed with Terraform Apply?', ok: 'Proceed'
             }
@@ -111,20 +110,20 @@ terraform {
         success {
             script {
                 def terraformDir = params.TERRAFORM_DIR
-                slackSend(channel: '#terraform', message: "Jenkins job `${env.JOB_NAME}` succeeded. Build #${env.BUILD_NUMBER}. State file located at: s3://terraform-aws-thirupathi-test/${terraformDir}/state/terraform.tfstate", tokenCredentialId: 'SLACK_CREDENTIALS')
+                slackSend(channel: '#terraform', message: "Jenkins job `${env.JOB_NAME}` succeeded. Build #${env.BUILD_NUMBER}. State file located at: s3://terraform-aws-thirupathi-test/${terraformDir}/state/terraform.tfstate", tokenCredentialId: 'slack-token')
             }
             echo 'Pipeline succeeded!'
         }
         failure {
             script {
                 def logs = currentBuild.rawBuild.getLog(100) // Get last 100 lines of logs
-                slackSend(channel: '#terraform', message: "Jenkins job `${env.JOB_NAME}` failed. Build #${env.BUILD_NUMBER}.\nLogs:\n${logs}", tokenCredentialId: 'SLACK_CREDENTIALS')
+                slackSend(channel: '#terraform', message: "Jenkins job `${env.JOB_NAME}` failed. Build #${env.BUILD_NUMBER}.\nLogs:\n${logs}", tokenCredentialId: 'slack-token')
             }
             echo 'Pipeline failed.'
         }
         aborted {
             script {
-                slackSend(channel: '#terraform', message: "Jenkins job `${env.JOB_NAME}` was aborted. Build #${env.BUILD_NUMBER}", tokenCredentialId: 'SLACK_CREDENTIALS')
+                slackSend(channel: '#terraform', message: "Jenkins job `${env.JOB_NAME}` was aborted. Build #${env.BUILD_NUMBER}", tokenCredentialId: 'slack-token')
             }
             echo 'Pipeline aborted.'
         }
