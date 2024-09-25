@@ -89,15 +89,15 @@ stage('Terraform Plan') {
                           message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan has been generated. Sending as file.",
                           token: SLACK_CREDENTIALS)
 
-                // Upload the Terraform plan output file to Slack using curl
-                sh """
-                curl -F file=@plan_output.json -F 'initial_comment=Terraform Plan Output for Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID}' -F channels='#terraform' https://slack.com/api/files.upload -H "Authorization: Bearer ${SLACK_CREDENTIALS}"
-                """
+                // Upload the Terraform plan output file to Slack
+                slackUploadFile(channel: '#terraform',
+                                file: 'plan_output.json',
+                                initialComment: "Terraform Plan Output for Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID}",
+                                token: SLACK_CREDENTIALS)
             }
         }
     }
 }
-
 
 
         stage('Approval') {
