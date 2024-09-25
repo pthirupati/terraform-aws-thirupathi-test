@@ -4,6 +4,7 @@ pipeline {
     environment {
         AWS_CREDENTIALS = credentials('aws_secret_and_access') // Jenkins credentials ID for AWS
         TF_IN_AUTOMATION = 'true' // Specifies that Terraform runs in automation mode
+        SLACK_WEBHOOK_URL = credentials('slack-webhook') // Assuming you store your webhook in Jenkins credentials
     }
 
     parameters {
@@ -14,7 +15,14 @@ pipeline {
         stage('Start Notification') {
             steps {
                 script {
-                    slackSend(channel: '#terraform', message: "Pipeline started for Terraform directory: ${params.TERRAFORM_DIR}.")
+                    def message = [
+                        text: "Pipeline Notification: *terraform-aws-thirupathi-test_build #${env.BUILD_NUMBER}* has started for Terraform Directory: *${params.TERRAFORM_DIR}*",
+                        attachments: [[
+                            color: "#36a64f", // Green color for "Started"
+                            text: "The Terraform pipeline is starting."
+                        ]]
+                    ]
+                    sh "curl -X POST -H 'Content-type: application/json' --data '${groovy.json.JsonOutput.toJson(message)}' ${SLACK_WEBHOOK_URL}"
                 }
             }
         }
@@ -26,6 +34,7 @@ pipeline {
                     if (!terraformDir) {
                         error "TERRAFORM_DIR parameter is required."
                     }
+                    slackSend(channel: '#terraform', message: "Checkout stage started for Terraform directory: ${params.TERRAFORM_DIR}.")
                 }
                 git branch: 'main', url: 'https://github.com/pthirupati/terraform-aws-thirupathi-test.git'
                 slackSend(channel: '#terraform', message: "Checkout stage completed for Terraform directory: ${params.TERRAFORM_DIR}.")
