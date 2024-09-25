@@ -71,6 +71,7 @@ terraform {
             }
         }
 
+
 stage('Terraform Plan') {
     steps {
         script {
@@ -92,18 +93,22 @@ stage('Terraform Plan') {
                           message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan has been generated. Sending the tfplan.txt file.",
                           token: SLACK_CREDENTIALS)
 
-                // Upload only the tfplan.txt file
+                // Use a temporary directory for the upload
+                sh '''
+                mkdir -p /tmp/slack_upload
+                mv /tmp/tfplan.txt /tmp/slack_upload/tfplan.txt
+                '''
+
+                // Upload only the tfplan.txt file from the temporary directory
                 slackUploadFile(channel: '#terraform',
-                                file: '/tmp/tfplan.txt', 
+                                file: '/tmp/slack_upload/tfplan.txt', 
                                 initialComment: "Terraform Plan (tfplan.txt) for Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID}",
-                                token: SLACK_CREDENTIALS,
-                                includeMask: '**/tfplan.txt', // Only include the tfplan.txt
-                                excludeMask: '**/*' // Exclude all other files
-                )
+                                token: SLACK_CREDENTIALS)
             }
         }
     }
 }
+
 
 
         stage('Approval') {
