@@ -82,13 +82,38 @@ terraform {
                         terraform plan -out=tfplan
                         ''', returnStdout: true).trim()
 
-                        // Print the plan output in Jenkins
-                        echo "Terraform Plan Output:\n${planOutput}"
+                        // Write output to a file for reference
+                        writeFile file: 'plan_output.txt', text: planOutput
 
-                        // Send the plan output directly to Slack
+                        // Use absolute file path for file upload
+                        def workspace = pwd()
+                        def filePath = "${workspace}/plan_output.txt"
+
+                        // Upload the plan as a file to Slack
+                        slackUploadFile(channel: '#terraform',
+                                        filePath: filePath,
+                                        initialComment: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan Output.",
+                                        token: SLACK_CREDENTIALS)
+                    }
+                }
+            }
+        }
+
+        stage('Approval') {
+            steps {
+                script {
+                    // Standard Jenkins approval input
+                    def approvalResponse = input(id: 'Approval', message: 'Do you approve the Terraform Apply?', parameters: [choice(name: 'Approval', choices: 'Approve\nReject', description: 'Please select')])
+                    
+                    if (approvalResponse == 'Approve') {
                         slackSend(channel: '#terraform',
-                                  message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan Output:\n${planOutput}",
+                                  message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Approval received. Proceeding with Terraform Apply.",
                                   token: SLACK_CREDENTIALS)
+                    } else {
+                        slackSend(channel: '#terraform',
+                                  message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Approval rejected. Aborting the pipeline.",
+                                  token: SLACK_CREDENTIALS)
+                        error("Pipeline aborted due to rejection.")
                     }
                 }
             }
@@ -139,6 +164,12 @@ terraform {
                 slackSend(channel: '#terraform',
                           message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline has completed execution.",
                           token: SLACK_CREDENTIALS)
+                // Check for aborted builds
+                if (currentBuild.result == 'ABORTED') {
+                    slackSend(channel: '#terraform',
+                              message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline aborted. Check the logs for details.",
+                              token: SLACK_CREDENTIALS)
+                }
             }
         }
     }
