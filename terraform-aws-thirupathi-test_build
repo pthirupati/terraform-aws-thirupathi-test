@@ -71,40 +71,25 @@ terraform {
             }
         }
 
-stage('Terraform Plan') {
-    steps {
-        script {
-            dir("${params.TERRAFORM_DIR}") {
-                // Define the credentials
-                def awsAccessKeyId = AWS_CREDENTIALS.getUsername()
-                def awsSecretAccessKey = AWS_CREDENTIALS.getPassword()
-
-                // Run terraform plan and capture output
-                def planOutputFile = "terraform_plan_output.txt"
-                sh """
-                export AWS_ACCESS_KEY_ID=${awsAccessKeyId}
-                export AWS_SECRET_ACCESS_KEY=${awsSecretAccessKey}
-                terraform plan -out=tfplan | tee ${planOutputFile}
-                """
-                
-                // Display the output in Jenkins console
-                echo readFile(planOutputFile)
-                
-                // Send the plan output file to Slack
-                slackSend(channel: '#terraform',
-                          message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan Output:",
-                          token: SLACK_CREDENTIALS)
-                
-                // Upload the file to Slack (using Slack API)
-                sh """
-                curl -F file=@${planOutputFile} -F channels=#terraform -F token=${SLACK_CREDENTIALS} https://slack.com/api/files.upload
-                """
+        stage('Terraform Plan') {
+            steps {
+                script {
+                    dir("${params.TERRAFORM_DIR}") {
+                        // Run terraform plan and capture output
+                        def planOutput = sh(script: '''
+                        export AWS_ACCESS_KEY_ID=${AWS_CREDENTIALS_USR}
+                        export AWS_SECRET_ACCESS_KEY=${AWS_CREDENTIALS_PSW}
+                        terraform plan -out=tfplan
+                        ''', returnStdout: true).trim()
+                        echo planOutput
+                        // Send Slack notification with plan output, using a shortened message for Slack's limit
+                        slackSend(channel: '#terraform',
+                                  message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan Output: \n${planOutput.substring(0, 2000)}", // Limit to first 2000 characters
+                                  token: SLACK_CREDENTIALS)
+                    }
+                }
             }
         }
-    }
-}
-
-
 
         stage('Approval') {
             steps {
@@ -158,22 +143,18 @@ stage('Terraform Plan') {
             }
             echo 'Pipeline failed.'
         }
-        aborted {
-            script {
-                slackSend(channel: '#terraform',
-                          message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline aborted and job exited. Check the logs for details.",
-                          token: SLACK_CREDENTIALS)
-            }
-        }
         always {
             script {
                 // Clean workspace
                 cleanWs()
-                // Check if the build was aborted
-                if (currentBuild.result != 'ABORTED') {
-                    // Notify completion if not aborted
+                // Notify completion
+                slackSend(channel: '#terraform',
+                          message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline has completed execution.",
+                          token: SLACK_CREDENTIALS)
+                // Check for aborted builds
+                if (currentBuild.result == 'ABORTED') {
                     slackSend(channel: '#terraform',
-                              message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline has completed execution.",
+                              message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline aborted. Check the logs for details.",
                               token: SLACK_CREDENTIALS)
                 }
             }
