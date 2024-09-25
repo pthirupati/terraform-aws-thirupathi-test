@@ -113,14 +113,14 @@ terraform {
         stage('Approval') {
             steps {
                 script {
-                    def inputMessage = "Do you want to proceed with Terraform Apply? Please check the tfplan file above."
+                    def inputMessage = "Job: *${env.JOB_NAME}* | Build ID: *${env.BUILD_ID}* \nDo you want to proceed with Terraform Apply? Please check the tfplan file above."
                     // Notify Slack about the approval request
                     slackSend(channel: '#terraform',
-                              message: "Job: *${env.JOB_NAME}* | Build ID: *${env.BUILD_ID}* | Approval needed for Terraform Apply.",
+                              message: inputMessage,
                               token: SLACK_CREDENTIALS)
 
                     // Wait for user input
-                    def approval = input message: inputMessage, ok: 'Proceed'
+                    def approval = input message: "Approval Needed", ok: 'Proceed'
                 }
             }
         }
