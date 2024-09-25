@@ -4,7 +4,6 @@ pipeline {
     environment {
         AWS_CREDENTIALS = credentials('aws_secret_and_access') // Jenkins credentials ID for AWS
         TF_IN_AUTOMATION = 'true' // Specifies that Terraform runs in automation mode
-        SLACK_WEBHOOK_URL = credentials('slack-webhook') // Retrieve Slack Webhook URL from Jenkins credentials
     }
 
     parameters {
@@ -15,23 +14,7 @@ pipeline {
         stage('Start Notification') {
             steps {
                 script {
-                    def message = [
-                        text: "Pipeline Notification: *${env.JOB_NAME} #${env.BUILD_NUMBER}* has started for Terraform Directory: *${params.TERRAFORM_DIR}*",
-                        attachments: [
-                            [
-                                color: "#36a64f", // Green color for "Started"
-                                text: "The Terraform pipeline is starting."
-                            ]
-                        ]
-                    ]
-                    
-                    // Use the HTTP request plugin to send the message
-                    httpRequest(
-                        url: "${SLACK_WEBHOOK_URL}",
-                        httpMode: 'POST',
-                        contentType: 'APPLICATION_JSON',
-                        requestBody: groovy.json.JsonOutput.toJson(message)
-                    )
+                    slackSend(channel: '#terraform', message: "Pipeline started for Terraform directory: ${params.TERRAFORM_DIR}.")
                 }
             }
         }
@@ -45,6 +28,7 @@ pipeline {
                     }
                 }
                 git branch: 'main', url: 'https://github.com/pthirupati/terraform-aws-thirupathi-test.git'
+                slackSend(channel: '#terraform', message: "Checkout stage completed for Terraform directory: ${params.TERRAFORM_DIR}.")
             }
         }
 
@@ -67,6 +51,7 @@ terraform {
   }
 }
 """
+                    slackSend(channel: '#terraform', message: "Terraform backend setup completed for directory: ${params.TERRAFORM_DIR}.")
                 }
             }
         }
@@ -81,6 +66,7 @@ terraform {
                         terraform init
                         '''
                     }
+                    slackSend(channel: '#terraform', message: "Terraform initialized successfully in directory: ${params.TERRAFORM_DIR}.")
                 }
             }
         }
@@ -95,6 +81,7 @@ terraform {
                         terraform plan -out=tfplan
                         '''
                     }
+                    slackSend(channel: '#terraform', message: "Terraform plan completed successfully in directory: ${params.TERRAFORM_DIR}.")
                 }
             }
         }
@@ -102,30 +89,7 @@ terraform {
         stage('Approval') {
             steps {
                 script {
-                    def approvalMessage = [
-                        text: "Approval Required: The Terraform pipeline is waiting for approval.",
-                        attachments: [
-                            [
-                                color: "#ffcc00", // Yellow color for "Approval Required"
-                                text: "Terraform Directory: *${params.TERRAFORM_DIR}*",
-                                fields: [
-                                    [
-                                        title: "State File",
-                                        value: "<https://s3.amazonaws.com/terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate|Click Here>",
-                                        short: false
-                                    ]
-                                ]
-                            ]
-                        ]
-                    ]
-                    
-                    httpRequest(
-                        url: "${SLACK_WEBHOOK_URL}",
-                        httpMode: 'POST',
-                        contentType: 'APPLICATION_JSON',
-                        requestBody: groovy.json.JsonOutput.toJson(approvalMessage)
-                    )
-                    
+                    slackSend(channel: '#terraform', message: "Approval required for Terraform apply in directory: ${params.TERRAFORM_DIR}.")
                     input message: 'Do you want to proceed with Terraform Apply?', ok: 'Proceed'
                 }
             }
@@ -141,6 +105,7 @@ terraform {
                         terraform apply -auto-approve tfplan
                         '''
                     }
+                    slackSend(channel: '#terraform', message: "Terraform apply completed successfully in directory: ${params.TERRAFORM_DIR}.")
                 }
             }
         }
@@ -149,94 +114,22 @@ terraform {
     post {
         success {
             script {
-                def outputs = sh(script: "cd ${params.TERRAFORM_DIR} && terraform output -json", returnStdout: true).trim()
-                def successMessage = [
-                    text: "Pipeline Succeeded: *${env.JOB_NAME} #${env.BUILD_NUMBER}* has successfully completed.",
-                    attachments: [
-                        [
-                            color: "#36a64f", // Green color for "Success"
-                            text: "Terraform Directory: *${params.TERRAFORM_DIR}*",
-                            fields: [
-                                [
-                                    title: "State File",
-                                    value: "<https://s3.amazonaws.com/terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate|Click Here>",
-                                    short: false
-                                ],
-                                [
-                                    title: "Resources Created:",
-                                    value: "```${outputs}```",
-                                    short: false
-                                }
-                            ]
-                        ]
-                    ]
-                ]
-                
-                httpRequest(
-                    url: "${SLACK_WEBHOOK_URL}",
-                    httpMode: 'POST',
-                    contentType: 'APPLICATION_JSON',
-                    requestBody: groovy.json.JsonOutput.toJson(successMessage)
-                )
-                echo 'Pipeline succeeded!'
+                def stateFilePath = "s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate"
+                slackSend(channel: '#terraform', message: "Pipeline succeeded for Terraform directory: ${params.TERRAFORM_DIR}. State file path: ${stateFilePath}.")
             }
+            echo 'Pipeline succeeded!'
         }
-
         failure {
             script {
-                def failureMessage = [
-                    text: "Pipeline Failed: *${env.JOB_NAME} #${env.BUILD_NUMBER}* has failed.",
-                    attachments: [
-                        [
-                            color: "#ff0000", // Red color for "Failure"
-                            text: "Terraform Directory: *${params.TERRAFORM_DIR}*",
-                            fields: [
-                                [
-                                    title: "Error",
-                                    value: "```${currentBuild.rawBuild.log(50).join('\\n')}```",
-                                    short: false
-                                },
-                                [
-                                    title: "State File",
-                                    value: "<https://s3.amazonaws.com/terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate|Click Here>",
-                                    short: false
-                                }
-                            ]
-                        ]
-                    ]
-                ]
-                
-                httpRequest(
-                    url: "${SLACK_WEBHOOK_URL}",
-                    httpMode: 'POST',
-                    contentType: 'APPLICATION_JSON',
-                    requestBody: groovy.json.JsonOutput.toJson(failureMessage)
-                )
-                echo 'Pipeline failed.'
+                slackSend(channel: '#terraform', message: "Pipeline failed for Terraform directory: ${params.TERRAFORM_DIR}.")
             }
+            echo 'Pipeline failed.'
         }
-
         aborted {
             script {
-                def abortedMessage = [
-                    text: "Pipeline Aborted: *${env.JOB_NAME} #${env.BUILD_NUMBER}* has been aborted.",
-                    attachments: [
-                        [
-                            color: "#ffcc00", // Yellow color for "Aborted"
-                            text: "Terraform Directory: *${params.TERRAFORM_DIR}*"
-                        ]
-                    ]
-                ]
-                
-                httpRequest(
-                    url: "${SLACK_WEBHOOK_URL}",
-                    httpMode: 'POST',
-                    contentType: 'APPLICATION_JSON',
-                    requestBody: groovy.json.JsonOutput.toJson(abortedMessage)
-                )
+                slackSend(channel: '#terraform', message: "Pipeline was aborted for Terraform directory: ${params.TERRAFORM_DIR}.")
             }
         }
-
         always {
             cleanWs()
         }
