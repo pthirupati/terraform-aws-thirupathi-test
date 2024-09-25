@@ -71,45 +71,42 @@ terraform {
             }
         }
 
+        stage('Terraform Plan') {
+            steps {
+                script {
+                    dir("${params.TERRAFORM_DIR}") {
+                        // Run terraform plan and capture output
+                        sh '''
+                        export AWS_ACCESS_KEY_ID=${AWS_CREDENTIALS_USR}
+                        export AWS_SECRET_ACCESS_KEY=${AWS_CREDENTIALS_PSW}
+                        terraform plan -out=tfplan
+                        '''
 
-stage('Terraform Plan') {
-    steps {
-        script {
-            dir("${params.TERRAFORM_DIR}") {
-                // Run terraform plan and capture output
-                sh '''
-                export AWS_ACCESS_KEY_ID=${AWS_CREDENTIALS_USR}
-                export AWS_SECRET_ACCESS_KEY=${AWS_CREDENTIALS_PSW}
-                terraform plan -out=tfplan
-                '''
+                        // Show the plan in human-readable format and save it to tfplan.txt
+                        sh '''
+                        terraform show -no-color tfplan > /tmp/tfplan.txt
+                        '''
 
-                // Convert the tfplan to human-readable format and save it to /tmp
-                sh '''
-                terraform show -no-color tfplan > /tmp/tfplan.txt 
-                '''
-
-                // Notify Slack about the generated plan
-                slackSend(channel: '#terraform',
-                          message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan has been generated. Sending the tfplan.txt file.",
-                          token: SLACK_CREDENTIALS)
-
-                // Use a temporary directory for the upload
-                sh '''
-                mkdir -p /tmp/slack_upload
-                mv /tmp/tfplan.txt /tmp/slack_upload/tfplan.txt
-                '''
-
-                // Upload only the tfplan.txt file from the temporary directory
-                slackUploadFile(channel: '#terraform',
-                                file: '/tmp/slack_upload/tfplan.txt', 
-                                initialComment: "Terraform Plan (tfplan.txt) for Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID}",
-                                token: SLACK_CREDENTIALS)
+                        // Send Slack notification with the plan initiation message
+                        slackSend(channel: '#terraform',
+                                  message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan has been generated.",
+                                  token: SLACK_CREDENTIALS)
+                    }
+                }
             }
         }
-    }
-}
 
-
+        stage('Send tfplan.txt to Slack') {
+            steps {
+                script {
+                    // Upload only the tfplan.txt from the temporary directory
+                    slackUploadFile(channel: '#terraform',
+                                    file: "/tmp/tfplan.txt",
+                                    initialComment: "Terraform Plan (tfplan.txt) for Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID}",
+                                    token: SLACK_CREDENTIALS)
+                }
+            }
+        }
 
         stage('Approval') {
             steps {
