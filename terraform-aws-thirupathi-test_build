@@ -71,39 +71,36 @@ terraform {
             }
         }
 
-stage('Terraform Plan') {
-    steps {
-        script {
-            dir("${params.TERRAFORM_DIR}") {
-                // Run terraform plan and capture output
-                def planOutput = sh(script: '''
-                export AWS_ACCESS_KEY_ID=${AWS_CREDENTIALS_USR}
-                export AWS_SECRET_ACCESS_KEY=${AWS_CREDENTIALS_PSW}
-                terraform plan -out=tfplan
-                terraform show -json tfplan > plan_output.json
-                ''', returnStdout: true).trim()
-                echo planOutput
+        stage('Terraform Plan') {
+            steps {
+                script {
+                    dir("${params.TERRAFORM_DIR}") {
+                        // Run terraform plan and capture output
+                        sh '''
+                        export AWS_ACCESS_KEY_ID=${AWS_CREDENTIALS_USR}
+                        export AWS_SECRET_ACCESS_KEY=${AWS_CREDENTIALS_PSW}
+                        terraform plan -out=tfplan
+                        '''
 
-                // Send Slack notification with the plan initiation message
-                slackSend(channel: '#terraform',
-                          message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan has been generated. Sending as file.",
-                          token: SLACK_CREDENTIALS)
+                        // Send Slack notification with the plan initiation message
+                        slackSend(channel: '#terraform',
+                                  message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan has been generated. Sending the tfplan file.",
+                                  token: SLACK_CREDENTIALS)
 
-                // Upload the Terraform plan output file to Slack
-                slackUploadFile(channel: '#terraform',
-                                file: 'plan_output.json',
-                                initialComment: "Terraform Plan Output for Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID}",
-                                token: SLACK_CREDENTIALS)
+                        // Upload the Terraform tfplan file to Slack
+                        slackUploadFile(channel: '#terraform',
+                                        file: 'tfplan',
+                                        initialComment: "Terraform Plan (tfplan) for Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID}",
+                                        token: SLACK_CREDENTIALS)
+                    }
+                }
             }
         }
-    }
-}
-
 
         stage('Approval') {
             steps {
                 script {
-                    def inputMessage = "Do you want to proceed with Terraform Apply? Please check the plan output above."
+                    def inputMessage = "Do you want to proceed with Terraform Apply? Please check the tfplan file above."
                     // Notify Slack about the approval request
                     slackSend(channel: '#terraform',
                               message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Approval needed for Terraform Apply.",
