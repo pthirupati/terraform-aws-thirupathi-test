@@ -75,45 +75,35 @@ stage('Terraform Plan') {
     steps {
         script {
             dir("${params.TERRAFORM_DIR}") {
+                // Define the credentials
+                def awsAccessKeyId = AWS_CREDENTIALS.getUsername()
+                def awsSecretAccessKey = AWS_CREDENTIALS.getPassword()
+
                 // Run terraform plan and capture output
                 def planOutputFile = "terraform_plan_output.txt"
-                try {
-                    sh """
-                    export AWS_ACCESS_KEY_ID=${AWS_CREDENTIALS_USR}
-                    export AWS_SECRET_ACCESS_KEY=${AWS_CREDENTIALS_PSW}
-                    terraform plan -out=tfplan | tee ${planOutputFile}
-                    """
-                    
-                    // Display the output in Jenkins console
-                    echo readFile(planOutputFile)
-                    
-                    // Notify Slack about the plan output
-                    slackSend(channel: '#terraform',
-                              message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan Output:",
-                              token: SLACK_CREDENTIALS)
-
-                    // Upload the file to Slack (using Slack API)
-                    def uploadResponse = sh(script: """
-                    curl -F file=@${planOutputFile} \
-                         -F channels=#terraform \
-                         -F token=${SLACK_CREDENTIALS} \
-                         https://slack.com/api/files.upload
-                    """, returnStdout: true).trim()
-
-                    // Log the response for debugging
-                    echo "Slack upload response: ${uploadResponse}"
-
-                    // Check if upload was successful
-                    if (!uploadResponse.contains('"ok":true')) {
-                        error "Failed to upload file to Slack: ${uploadResponse}"
-                    }
-                } catch (Exception e) {
-                    error "Terraform plan failed: ${e.message}"
-                }
+                sh """
+                export AWS_ACCESS_KEY_ID=${awsAccessKeyId}
+                export AWS_SECRET_ACCESS_KEY=${awsSecretAccessKey}
+                terraform plan -out=tfplan | tee ${planOutputFile}
+                """
+                
+                // Display the output in Jenkins console
+                echo readFile(planOutputFile)
+                
+                // Send the plan output file to Slack
+                slackSend(channel: '#terraform',
+                          message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan Output:",
+                          token: SLACK_CREDENTIALS)
+                
+                // Upload the file to Slack (using Slack API)
+                sh """
+                curl -F file=@${planOutputFile} -F channels=#terraform -F token=${SLACK_CREDENTIALS} https://slack.com/api/files.upload
+                """
             }
         }
     }
 }
+
 
 
         stage('Approval') {
