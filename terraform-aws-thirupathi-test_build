@@ -12,14 +12,13 @@ pipeline {
     }
 
     stages {
-        stage('Approval') {
+        stage('Notify Start') {
             steps {
                 script {
                     slackSend(channel: '#terraform',
-                              message: "Approval required for Terraform Apply in job `${env.JOB_NAME}`. Build ID: ${env.BUILD_ID}",
+                              message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline started.",
                               token: SLACK_CREDENTIALS)
                 }
-                input message: 'Do you want to proceed with Terraform Apply?', ok: 'Proceed'
             }
         }
 
@@ -83,24 +82,27 @@ terraform {
                         terraform plan -out=tfplan
                         ''', returnStdout: true).trim()
                         
-                        // Write output to a file for reference
-                        writeFile file: 'plan_output.txt', text: planOutput
-
-                        // Send Slack notification with plan output, up to 2000 characters
+                        // Send Slack notification with plan output, using a shortened message for Slack's limit
                         slackSend(channel: '#terraform',
-                                  message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan Output:\n${planOutput.take(2000)}", // Limit to first 2000 characters
+                                  message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan Output: \n${planOutput.substring(0, 2000)}", // Limit to first 2000 characters
                                   token: SLACK_CREDENTIALS)
                     }
                 }
             }
         }
 
-        stage('Approval for Apply') {
+        stage('Approval') {
             steps {
                 script {
-                    slackSend(channel: '#terraform', message: "Approval required for Terraform Apply in job `${env.JOB_NAME}`. Build ID: ${env.BUILD_ID}", token: SLACK_CREDENTIALS)
+                    def inputMessage = "Do you want to proceed with Terraform Apply? Please check the plan output above."
+                    // Notify Slack about the approval request
+                    slackSend(channel: '#terraform',
+                              message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Approval needed for Terraform Apply.",
+                              token: SLACK_CREDENTIALS)
+
+                    // Wait for user input
+                    def approval = input message: inputMessage, ok: 'Proceed'
                 }
-                input message: 'Do you want to proceed with Terraform Apply?', ok: 'Proceed'
             }
         }
 
