@@ -85,13 +85,16 @@ stage('Terraform Plan') {
                 // Write output to a file for reference
                 writeFile file: 'plan_output.txt', text: planOutput
 
-                // Print plan output to Jenkins console
+                // Print the entire plan output to Jenkins console
                 echo "Terraform Plan Output:\n${planOutput}"
 
-                // Send Slack notification with plan output, up to 2000 characters
-                slackSend(channel: '#terraform',
-                          message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan Output:\n${planOutput.take(2000)}", // Limit to first 2000 characters
-                          token: SLACK_CREDENTIALS)
+                // Send Slack notification with plan output in chunks
+                int chunkSize = 2000
+                for (int i = 0; i < planOutput.length(); i += chunkSize) {
+                    slackSend(channel: '#terraform',
+                              message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan Output:\n${planOutput.substring(i, Math.min(i + chunkSize, planOutput.length()))}",
+                              token: SLACK_CREDENTIALS)
+                }
             }
         }
     }
