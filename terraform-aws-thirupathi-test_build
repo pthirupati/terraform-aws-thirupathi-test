@@ -71,31 +71,40 @@ terraform {
             }
         }
 
-        stage('Terraform Plan') {
-            steps {
-                script {
-                    dir("${params.TERRAFORM_DIR}") {
-                        // Run terraform plan and capture output
-                        def planOutput = sh(script: '''
-                        export AWS_ACCESS_KEY_ID=${AWS_CREDENTIALS_USR}
-                        export AWS_SECRET_ACCESS_KEY=${AWS_CREDENTIALS_PSW}
-                        terraform plan -out=tfplan
-                        ''', returnStdout: true).trim()
+stage('Terraform Plan') {
+    steps {
+        script {
+            dir("${params.TERRAFORM_DIR}") {
+                // Run terraform plan and capture output
+                def planOutput = sh(script: '''
+                export AWS_ACCESS_KEY_ID=${AWS_CREDENTIALS_USR}
+                export AWS_SECRET_ACCESS_KEY=${AWS_CREDENTIALS_PSW}
+                terraform plan -out=tfplan
+                ''', returnStdout: true).trim()
 
-                        // Write output to a file for reference
-                        writeFile file: 'plan_output.txt', text: planOutput
+                // Write output to a file for reference
+                writeFile file: 'plan_output.txt', text: planOutput
 
-                        // Print the entire plan output to Jenkins console
-                        echo "Terraform Plan Output:\n${planOutput}"
+                // Print the entire plan output to Jenkins console
+                echo "Terraform Plan Output:\n${planOutput}"
 
-                        // Send Slack notification with plan output after the entire plan is completed
-                        slackSend(channel: '#terraform',
-                                  message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan Output:\n${planOutput}",
-                                  token: SLACK_CREDENTIALS)
-                    }
+                // Send Slack notification with header once
+                slackSend(channel: '#terraform',
+                          message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan started.",
+                          token: SLACK_CREDENTIALS)
+
+                // Send Slack notification with the full plan output in chunks, but without the repeated header
+                int chunkSize = 4000
+                for (int i = 0; i < planOutput.length(); i += chunkSize) {
+                    slackSend(channel: '#terraform',
+                              message: planOutput.substring(i, Math.min(i + chunkSize, planOutput.length())),
+                              token: SLACK_CREDENTIALS)
                 }
             }
         }
+    }
+}
+
 
         stage('Slack Approval') {
             steps {
