@@ -94,24 +94,33 @@ terraform {
             }
         }
 
-        stage('Approval') {
-            steps {
-                script {
-                    // Notify Slack about the approval request
-                    slackSend(channel: '#terraform',
-                              message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Approval needed for Terraform Apply. Check the plan output in Jenkins.",
-                              token: SLACK_CREDENTIALS)
+stage('Approval') {
+    steps {
+        script {
+            // Notify Slack about the approval request
+            slackSend(channel: '#terraform',
+                      message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Approval needed for Terraform Apply. Check the plan output in Jenkins.",
+                      token: SLACK_CREDENTIALS)
 
-                    def inputMessage = "Do you want to proceed with Terraform Apply? Please check the plan output above."
-                    // Wait for user input
-                    def approval = input message: inputMessage, ok: 'Proceed', timeout: 3600 // 1 hour timeout
-                    // Notify Slack about the approval decision
-                    slackSend(channel: '#terraform',
-                              message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Approval decision: ${approval ? 'Approved' : 'Aborted'}",
-                              token: SLACK_CREDENTIALS)
-                }
+            def inputMessage = "Do you want to proceed with Terraform Apply? Please check the plan output above."
+            // Wait for user input
+            def approval = input message: inputMessage, ok: 'Proceed', timeout: 3600 // 1 hour timeout
+
+            // Notify Slack about the approval decision
+            if (approval) {
+                slackSend(channel: '#terraform',
+                          message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Approval decision: Approved. Proceeding with Terraform Apply.",
+                          token: SLACK_CREDENTIALS)
+            } else {
+                slackSend(channel: '#terraform',
+                          message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Approval decision: Aborted. Halting the pipeline.",
+                          token: SLACK_CREDENTIALS)
+                error("Approval was aborted. Stopping the pipeline.")
             }
         }
+    }
+}
+
 
         stage('Terraform Apply') {
             steps {
