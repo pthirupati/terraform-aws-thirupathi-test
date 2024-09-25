@@ -131,14 +131,6 @@ terraform {
             }
             echo 'Pipeline failed.'
         }
-        abort {
-            script {
-                slackSend(channel: '#terraform-jenkins', 
-                          message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline aborted. Check the logs for details.",
-                          token: SLACK_CREDENTIALS)
-            }
-            echo 'Pipeline aborted.'
-        }
         always {
             script {
                 cleanWs()
@@ -146,6 +138,17 @@ terraform {
                           message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline has completed execution.",
                           token: SLACK_CREDENTIALS)
             }
+        }
+    }
+
+    // Catch abort signal
+    script {
+        currentBuild.rawBuild.addAction(new hudson.model.Cause.UserIdCause()) // Adds a UserIdCause
+        // Handle aborted builds
+        if (currentBuild.result == hudson.model.Result.ABORTED) {
+            slackSend(channel: '#terraform-jenkins', 
+                      message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline aborted. Check the logs for details.",
+                      token: SLACK_CREDENTIALS)
         }
     }
 }
