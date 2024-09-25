@@ -85,20 +85,28 @@ stage('Terraform Plan') {
                 // Write output to a file for reference
                 writeFile file: 'plan_output.txt', text: planOutput
 
+                // Send Slack notification with summary message before the output
+                slackSend(channel: '#terraform',
+                          message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform plan completed. Full output will be displayed below.",
+                          token: SLACK_CREDENTIALS)
+
                 // Print the entire plan output to Jenkins console
                 echo "Terraform Plan Output:\n${planOutput}"
 
-                // Send Slack notification with plan output in chunks
+                // Optional: Send plan output in Slack if necessary (disable if not needed)
+                /*
                 int chunkSize = 2000
                 for (int i = 0; i < planOutput.length(); i += chunkSize) {
                     slackSend(channel: '#terraform',
                               message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan Output:\n${planOutput.substring(i, Math.min(i + chunkSize, planOutput.length()))}",
                               token: SLACK_CREDENTIALS)
                 }
+                */
             }
         }
     }
 }
+
 
 
 stage('Approval') {
