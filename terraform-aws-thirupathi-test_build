@@ -85,8 +85,15 @@ terraform {
                         // Write output to a file for reference
                         writeFile file: 'plan_output.txt', text: planOutput
 
+                        // Use absolute file path for file upload
+                        def workspace = pwd()
+                        def filePath = "${workspace}/plan_output.txt"
+
                         // Upload the plan as a file to Slack (instead of sending it as a message)
-                        slackUploadFile channel: '#terraform', filePath: 'plan_output.txt', initialComment: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan Output.", tokenCredentialId: SLACK_CREDENTIALS
+                        slackUploadFile(channel: '#terraform',
+                                        filePath: filePath,
+                                        initialComment: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan Output.",
+                                        tokenCredentialId: SLACK_CREDENTIALS)
                     }
                 }
             }
