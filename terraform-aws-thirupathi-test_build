@@ -84,7 +84,7 @@ terraform {
 
                         // Show the plan in human-readable format and save it to tfplan.txt in the workspace root
                         sh '''
-                        terraform show -no-color tfplan > ${WORKSPACE}/tfplan.txt
+                        terraform show -no-color tfplan > /tmp/tfplan.txt
                         '''
 
                         // Send Slack notification with the plan initiation message
@@ -94,7 +94,7 @@ terraform {
 
                         // Upload only the tfplan.txt from the workspace root
                         slackUploadFile(channel: '#terraform',
-                                        file: "${WORKSPACE}/tfplan.txt",
+                                        file: "/tmp/tfplan.txt",
                                         initialComment: "Terraform Plan (tfplan.txt) for Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID}",
                                         token: SLACK_CREDENTIALS)
                     }
