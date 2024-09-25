@@ -71,25 +71,34 @@ terraform {
             }
         }
 
-        stage('Terraform Plan') {
-            steps {
-                script {
-                    dir("${params.TERRAFORM_DIR}") {
-                        // Run terraform plan and capture output
-                        def planOutput = sh(script: '''
-                        export AWS_ACCESS_KEY_ID=${AWS_CREDENTIALS_USR}
-                        export AWS_SECRET_ACCESS_KEY=${AWS_CREDENTIALS_PSW}
-                        terraform plan -out=tfplan
-                        ''', returnStdout: true).trim()
-                        echo planOutput
-                        // Send Slack notification with plan output, using a shortened message for Slack's limit
-                        slackSend(channel: '#terraform',
-                                  message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan Output: \n${planOutput.substring(0, 10000)}", // Limit to first 10000 characters
-                                  token: SLACK_CREDENTIALS)
-                    }
-                }
+stage('Terraform Plan') {
+    steps {
+        script {
+            dir("${params.TERRAFORM_DIR}") {
+                // Run terraform plan and capture output
+                def planOutput = sh(script: '''
+                export AWS_ACCESS_KEY_ID=${AWS_CREDENTIALS_USR}
+                export AWS_SECRET_ACCESS_KEY=${AWS_CREDENTIALS_PSW}
+                terraform plan -out=tfplan
+                terraform show -json tfplan > plan_output.json
+                ''', returnStdout: true).trim()
+                echo planOutput
+
+                // Send Slack notification with the plan initiation message
+                slackSend(channel: '#terraform',
+                          message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan has been generated. Sending as file.",
+                          token: SLACK_CREDENTIALS)
+
+                // Upload the Terraform plan output file to Slack
+                slackUploadFile(channel: '#terraform',
+                                file: 'plan_output.json',
+                                initialComment: "Terraform Plan Output for Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID}",
+                                token: SLACK_CREDENTIALS)
             }
         }
+    }
+}
+
 
         stage('Approval') {
             steps {
