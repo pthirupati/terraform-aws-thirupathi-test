@@ -143,18 +143,22 @@ terraform {
             }
             echo 'Pipeline failed.'
         }
+        aborted {
+            script {
+                slackSend(channel: '#terraform',
+                          message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline aborted. Check the logs for details.",
+                          token: SLACK_CREDENTIALS)
+            }
+        }
         always {
             script {
                 // Clean workspace
                 cleanWs()
-                // Notify completion
-                slackSend(channel: '#terraform',
-                          message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline has completed execution.",
-                          token: SLACK_CREDENTIALS)
-                // Check for aborted builds
-                if (currentBuild.result == 'ABORTED') {
+                // Check if the build was aborted
+                if (currentBuild.result != 'ABORTED') {
+                    // Notify completion if not aborted
                     slackSend(channel: '#terraform',
-                              message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline aborted. Check the logs for details.",
+                              message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline has completed execution.",
                               token: SLACK_CREDENTIALS)
                 }
             }
