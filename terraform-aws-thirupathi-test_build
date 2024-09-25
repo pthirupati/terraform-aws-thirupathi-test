@@ -100,11 +100,14 @@ terraform {
             steps {
                 script {
                     dir('/tf-plan') {  // Set the working directory to /tf-plan
+                        // Read tfplan.txt and wrap it in code formatting
+                        def tfplanContent = readFile('tfplan.txt').trim()
+                        def formattedMessage = "```terraform\n${tfplanContent}```"
+
                         // Upload only the tfplan.txt from the tf-plan directory
-                        slackUploadFile(channel: '#terraform',
-                                        file: "tfplan.txt",  // Adjusted file path to match the new directory
-                                        initialComment: "Job: *${env.JOB_NAME}* | Build ID: *${env.BUILD_ID}* | Uploading tfplan.txt.",
-                                        token: SLACK_CREDENTIALS)
+                        slackSend(channel: '#terraform',
+                                  message: "Job: *${env.JOB_NAME}* | Build ID: *${env.BUILD_ID}* | Here is the Terraform Plan:\n${formattedMessage}",
+                                  token: SLACK_CREDENTIALS)
                     }
                 }
             }
