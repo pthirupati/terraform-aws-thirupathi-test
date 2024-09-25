@@ -167,10 +167,6 @@ terraform {
             script {
                 // Clean workspace
                 cleanWs()
-                // Notify completion
-                slackSend(channel: '#terraform',
-                          message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline has completed execution.",
-                          token: SLACK_CREDENTIALS)
                 // Check for aborted builds
                 if (currentBuild.result == 'ABORTED') {
                     slackSend(channel: '#terraform',
