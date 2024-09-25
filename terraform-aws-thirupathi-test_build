@@ -84,7 +84,7 @@ terraform {
 
                         // Show the plan in human-readable format and save it to tfplan.txt
                         sh '''
-                        terraform show -no-color tfplan > /tmp/tfplan.txt
+                        terraform show -no-color tfplan > /tf-plan/tfplan.txt
                         '''
 
                         // Send Slack notification with the plan initiation message
@@ -99,14 +99,17 @@ terraform {
         stage('Send tfplan.txt to Slack') {
             steps {
                 script {
-                    // Upload only the tfplan.txt from the temporary directory
-                    slackUploadFile(channel: '#terraform',
-                                    file: "/tmp/tfplan.txt",
-                                    initialComment: "Terraform Plan (tfplan.txt) for Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID}",
-                                    token: SLACK_CREDENTIALS)
+                    dir('/tf-plan') {  // Set the working directory to /tf-plan
+                        // Upload only the tfplan.txt from the tf-plan directory
+                        slackUploadFile(channel: '#terraform',
+                                        file: "tfplan.txt",  // Adjusted file path to match the new directory
+                                        initialComment: "Terraform Plan (tfplan.txt) for Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID}",
+                                        token: SLACK_CREDENTIALS)
+                    }
                 }
             }
         }
+
 
         stage('Approval') {
             steps {
