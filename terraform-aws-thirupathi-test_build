@@ -4,6 +4,7 @@ pipeline {
     environment {
         AWS_CREDENTIALS = credentials('aws_secret_and_access') // Jenkins credentials ID for AWS
         TF_IN_AUTOMATION = 'true' // Specifies that Terraform runs in automation mode
+        SLACK_WEBHOOK_URL = credentials('slack-webhook') // Retrieve Slack Webhook URL from Jenkins credentials
     }
 
     parameters {
@@ -14,21 +15,18 @@ pipeline {
         stage('Start Notification') {
             steps {
                 script {
-                    emailext(
-                        subject: "Terraform Pipeline Started - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                        body: """
-                        <html>
-                        <body>
-                            <h2>Pipeline Notification</h2>
-                            <p>Pipeline started for job: <strong>${env.JOB_NAME} #${env.BUILD_NUMBER}</strong></p>
-                            <p>Terraform Directory: <strong>${params.TERRAFORM_DIR}</strong></p>
-                        </body>
-                        </html>
-                        """,
-                        to: 'awslearning85@gmail.com',
-                        mimeType: 'text/html'
-                    )
-                    sleep(5) // Wait for 5 second to avoid hitting SES limits
+                    def message = """
+                    {
+                        "text": "Pipeline Notification: *${env.JOB_NAME} #${env.BUILD_NUMBER}* has started for Terraform Directory: *${params.TERRAFORM_DIR}*",
+                        "attachments": [
+                            {
+                                "color": "#36a64f", // Green color for "Started"
+                                "text": "The Terraform pipeline is starting."
+                            }
+                        ]
+                    }
+                    """
+                    sh "curl -X POST -H 'Content-type: application/json' --data '${message}' ${SLACK_WEBHOOK_URL}"
                 }
             }
         }
@@ -99,24 +97,27 @@ terraform {
         stage('Approval') {
             steps {
                 script {
-                    emailext(
-                        subject: "Approval Required - Terraform Pipeline ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                        body: """
-                        <html>
-                        <body>
-                            <h2>Approval Required</h2>
-                            <p>The Terraform pipeline is waiting for approval.</p>
-                            <p>Terraform Directory: <strong>${params.TERRAFORM_DIR}</strong></p>
-                            <p>State file: <a href="s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate">s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate</a></p>
-                        </body>
-                        </html>
-                        """,
-                        to: 'awslearning85@gmail.com',
-                        mimeType: 'text/html'
-                    )
-                    sleep(5) // Wait for 5 second to avoid hitting SES limits
+                    def approvalMessage = """
+                    {
+                        "text": "Approval Required: The Terraform pipeline is waiting for approval.",
+                        "attachments": [
+                            {
+                                "color": "#ffcc00", // Yellow color for "Approval Required"
+                                "text": "Terraform Directory: *${params.TERRAFORM_DIR}*",
+                                "fields": [
+                                    {
+                                        "title": "State File",
+                                        "value": "<https://s3.amazonaws.com/terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate|Click Here>",
+                                        "short": false
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                    """
+                    sh "curl -X POST -H 'Content-type: application/json' --data '${approvalMessage}' ${SLACK_WEBHOOK_URL}"
+                    input message: 'Do you want to proceed with Terraform Apply?', ok: 'Proceed'
                 }
-                input message: 'Do you want to proceed with Terraform Apply?', ok: 'Proceed'
             }
         }
 
@@ -139,50 +140,79 @@ terraform {
         success {
             script {
                 def outputs = sh(script: "cd ${params.TERRAFORM_DIR} && terraform output -json", returnStdout: true).trim()
-
-                emailext(
-                    subject: "Pipeline Succeeded - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                    body: """
-                    <html>
-                    <body>
-                        <h2>Pipeline Status</h2>
-                        <p>The Terraform pipeline has successfully completed.</p>
-                        <p>Terraform Directory: <strong>${params.TERRAFORM_DIR}</strong></p>
-                        <p>State file: <a href="s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate">s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate</a></p>
-                        <h3>Resources Created:</h3>
-                        <pre>${outputs}</pre>
-                    </body>
-                    </html>
-                    """,
-                    to: 'awslearning85@gmail.com',
-                    mimeType: 'text/html'
-                )
-                sleep(5) // Wait for 5 second to avoid hitting SES limits
+                def successMessage = """
+                {
+                    "text": "Pipeline Succeeded: *${env.JOB_NAME} #${env.BUILD_NUMBER}* has successfully completed.",
+                    "attachments": [
+                        {
+                            "color": "#36a64f", // Green color for "Success"
+                            "text": "Terraform Directory: *${params.TERRAFORM_DIR}*",
+                            "fields": [
+                                {
+                                    "title": "State File",
+                                    "value": "<https://s3.amazonaws.com/terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate|Click Here>",
+                                    "short": false
+                                },
+                                {
+                                    "title": "Resources Created:",
+                                    "value": "```${outputs}```",
+                                    "short": false
+                                }
+                            ]
+                        }
+                    ]
+                }
+                """
+                sh "curl -X POST -H 'Content-type: application/json' --data '${successMessage}' ${SLACK_WEBHOOK_URL}"
+                echo 'Pipeline succeeded!'
             }
-            echo 'Pipeline succeeded!'
         }
 
         failure {
             script {
-                emailext(
-                    subject: "Pipeline Failed - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                    body: """
-                    <html>
-                    <body>
-                        <h2>Pipeline Status</h2>
-                        <p>The Terraform pipeline has failed.</p>
-                        <p>Terraform Directory: <strong>${params.TERRAFORM_DIR}</strong></p>
-                        <p>Error: <pre>${currentBuild.rawBuild.log(50).join('\n')}</pre></p>
-                        <p>State file: <a href="s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate">s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate</a></p>
-                    </body>
-                    </html>
-                    """,
-                    to: 'awslearning85@gmail.com',
-                    mimeType: 'text/html'
-                )
-                sleep(5) // Wait for 5 second to avoid hitting SES limits
+                def failureMessage = """
+                {
+                    "text": "Pipeline Failed: *${env.JOB_NAME} #${env.BUILD_NUMBER}* has failed.",
+                    "attachments": [
+                        {
+                            "color": "#ff0000", // Red color for "Failure"
+                            "text": "Terraform Directory: *${params.TERRAFORM_DIR}*",
+                            "fields": [
+                                {
+                                    "title": "Error",
+                                    "value": "```${currentBuild.rawBuild.log(50).join('\\n')}```",
+                                    "short": false
+                                },
+                                {
+                                    "title": "State File",
+                                    "value": "<https://s3.amazonaws.com/terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate|Click Here>",
+                                    "short": false
+                                }
+                            ]
+                        }
+                    ]
+                }
+                """
+                sh "curl -X POST -H 'Content-type: application/json' --data '${failureMessage}' ${SLACK_WEBHOOK_URL}"
+                echo 'Pipeline failed.'
             }
-            echo 'Pipeline failed.'
+        }
+
+        aborted {
+            script {
+                def abortedMessage = """
+                {
+                    "text": "Pipeline Aborted: *${env.JOB_NAME} #${env.BUILD_NUMBER}* has been aborted.",
+                    "attachments": [
+                        {
+                            "color": "#ffcc00", // Yellow color for "Aborted"
+                            "text": "Terraform Directory: *${params.TERRAFORM_DIR}*"
+                        }
+                    ]
+                }
+                """
+                sh "curl -X POST -H 'Content-type: application/json' --data '${abortedMessage}' ${SLACK_WEBHOOK_URL}"
+            }
         }
 
         always {
