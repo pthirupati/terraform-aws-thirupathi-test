@@ -103,7 +103,7 @@ terraform {
                         // Upload only the tfplan.txt from the tf-plan directory
                         slackUploadFile(channel: '#terraform',
                                         file: "tfplan.txt",  // Adjusted file path to match the new directory
-                                        initialComment: "Job: *${env.JOB_NAME}* | Build ID: *${env.BUILD_ID}* | Uploading tfplan.txt.",
+                                        initialComment: "Job: *${env.JOB_NAME}* | Build ID: *${env.BUILD_ID}* | Uploading tfplan.txt. Please approve the plan in Slack.",
                                         token: SLACK_CREDENTIALS)
                     }
                 }
@@ -113,14 +113,19 @@ terraform {
         stage('Approval') {
             steps {
                 script {
-                    def inputMessage = "Job: *${env.JOB_NAME}* | Build ID: *${env.BUILD_ID}* \nDo you want to proceed with Terraform Apply? Please check the tfplan file above."
                     // Notify Slack about the approval request
                     slackSend(channel: '#terraform',
-                              message: inputMessage,
+                              message: "Job: *${env.JOB_NAME}* | Build ID: *${env.BUILD_ID}* | Approval needed for Terraform Apply. Please respond with 'approve' or 'deny'.",
                               token: SLACK_CREDENTIALS)
 
                     // Wait for user input
-                    def approval = input message: "Approval Needed", ok: 'Proceed'
+                    def approval = input message: "Please approve or deny the Terraform Apply.", ok: 'Proceed', parameters: [
+                        string(name: 'Approval', defaultValue: '', description: 'Type "approve" to proceed or "deny" to cancel.')
+                    ]
+
+                    if (approval.toLowerCase() != 'approve') {
+                        error "Approval denied. Cancelling the pipeline."
+                    }
                 }
             }
         }
