@@ -2,9 +2,9 @@ pipeline {
     agent any
 
     environment {
-        AWS_CREDENTIALS = credentials('aws_secret_and_access') // Jenkins credentials ID for AWS
-        TF_IN_AUTOMATION = 'true' // Specifies that Terraform runs in automation mode
-        SLACK_CREDENTIALS = credentials('slack-token') // Jenkins credentials ID for Slack token
+        AWS_CREDENTIALS = credentials('aws_secret_and_access')
+        TF_IN_AUTOMATION = 'true'
+        SLACK_CREDENTIALS = credentials('slack-token')
     }
 
     parameters {
@@ -38,21 +38,16 @@ pipeline {
             steps {
                 script {
                     def terraformDir = params.TERRAFORM_DIR
-                    if (!terraformDir) {
-                        error "TERRAFORM_DIR parameter is required."
-                    }
-
-                    // Generate backend.tf with dynamic state path based on TERRAFORM_DIR parameter
                     writeFile file: "${terraformDir}/backend.tf", text: """
-terraform {
-  backend "s3" {
-    bucket         = "terraform-aws-thirupathi-test"
-    key            = "${terraformDir}/state/terraform.tfstate"
-    region         = "ap-south-1"
-    encrypt        = true
-  }
-}
-"""
+                    terraform {
+                      backend "s3" {
+                        bucket         = "terraform-aws-thirupathi-test"
+                        key            = "${terraformDir}/state/terraform.tfstate"
+                        region         = "ap-south-1"
+                        encrypt        = true
+                      }
+                    }
+                    """
                 }
             }
         }
@@ -75,20 +70,21 @@ terraform {
             steps {
                 script {
                     dir("${params.TERRAFORM_DIR}") {
-                        // Run terraform plan and capture output
                         def planOutput = sh(script: '''
                         export AWS_ACCESS_KEY_ID=${AWS_CREDENTIALS_USR}
                         export AWS_SECRET_ACCESS_KEY=${AWS_CREDENTIALS_PSW}
                         terraform plan -out=tfplan
                         ''', returnStdout: true).trim()
 
-                        // Write output to a file for reference
+                        // Save the plan output to a file
                         writeFile file: 'plan_output.txt', text: planOutput
 
-                        // Send Slack notification with attachment link to plan output
+                        // Upload the plan output to Slack as an attachment
                         slackSend(channel: '#terraform',
-                                  message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan completed. [Download Plan Output](<Jenkins URL>/job/${env.JOB_NAME}/${env.BUILD_ID}/artifact/plan_output.txt)",
-                                  tokenCredentialId: 'slack-webhook')
+                                  message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan is attached.",
+                                  tokenCredentialId: 'slack-webhook',
+                                  attachments: '[{"text": "Terraform Plan Output", "fallback": "Plan output attached.", "attachment_type": "default"}]',
+                                  filePath: 'plan_output.txt')
                     }
                 }
             }
@@ -97,28 +93,34 @@ terraform {
         stage('Slack Approval') {
             steps {
                 script {
-                    // Send Slack notification for manual approval
+                    // Send Slack notification asking for approval
                     def slackApprovalMessage = """
-                    Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan is complete.
-                    [View Plan Output](<Jenkins URL>/job/${env.JOB_NAME}/${env.BUILD_ID}/artifact/plan_output.txt)
-                    Please approve or reject the Terraform Apply in Jenkins.
+                    Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan is complete. 
+                    Please approve or reject the Terraform Apply.
                     """
-                    
+
                     slackSend(channel: '#terraform',
                               message: slackApprovalMessage,
+                              attachments: '[{"text": "Approve Terraform Apply?", "fallback": "You are unable to choose", "callback_id": "apply_approval", "actions": [{"name": "approval", "text": "Approve", "type": "button", "value": "approve"}, {"name": "rejection", "text": "Reject", "type": "button", "value": "reject"}]}]',
                               tokenCredentialId: 'slack-webhook')
-
-                    // Wait for approval in Jenkins
-                    def approval = input(message: 'Approve Terraform Apply?', ok: 'Apply', submitter: 'approvers', parameters: [choice(choices: 'Approve\nReject', description: '', name: 'approval')])
-
-                    if (approval == 'Reject') {
-                        error("Pipeline aborted by user.")
+                    
+                    // Capture input in Jenkins based on manual action
+                    def approvalResponse = input message: 'Waiting for Slack Approval...',
+                                               ok: 'Proceed with Apply',
+                                               submitter: 'approver', parameters: [
+                        choice(choices: ['approve', 'reject'], description: 'Select action', name: 'approval')
+                    ]
+                    
+                    if (approvalResponse == 'approve') {
+                        slackSend(channel: '#terraform',
+                                  message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Approval received. Proceeding with Terraform Apply.",
+                                  tokenCredentialId: 'slack-webhook')
+                    } else {
+                        slackSend(channel: '#terraform',
+                                  message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Approval rejected. Aborting the pipeline.",
+                                  tokenCredentialId: 'slack-webhook')
+                        error("Pipeline aborted due to rejection.")
                     }
-
-                    // Notify approval on Slack
-                    slackSend(channel: '#terraform',
-                              message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Approval received. Proceeding with Terraform Apply.",
-                              tokenCredentialId: 'slack-webhook')
                 }
             }
         }
@@ -133,10 +135,10 @@ terraform {
                         terraform apply -auto-approve tfplan
                         ''', returnStdout: true).trim()
 
-                        // Notify with apply output and state file
                         slackSend(channel: '#terraform',
-                                  message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Apply Output:\n${applyOutput}\nState file: s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate",
-                                  tokenCredentialId: 'slack-webhook')
+                                  message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Apply Output attached. State file: s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate",
+                                  tokenCredentialId: 'slack-webhook',
+                                  filePath: 'apply_output.txt')
                     }
                 }
             }
@@ -162,11 +164,9 @@ terraform {
         }
         always {
             script {
-                // Clean workspace
                 cleanWs()
-                // Notify completion
                 slackSend(channel: '#terraform',
-                          message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline has completed execution.",
+                          message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline completed.",
                           tokenCredentialId: 'slack-webhook')
             }
         }
