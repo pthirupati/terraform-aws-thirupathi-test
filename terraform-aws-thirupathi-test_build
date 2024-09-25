@@ -84,7 +84,7 @@ terraform {
                         echo planOutput
                         // Send Slack notification with plan output, using a shortened message for Slack's limit
                         slackSend(channel: '#terraform',
-                                  message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan Output: \n${planOutput.substring(0, 2000)}", // Limit to first 2000 characters
+                                  message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan Output: \n${planOutput.substring(0, 10000)}", // Limit to first 10000 characters
                                   token: SLACK_CREDENTIALS)
                     }
                 }
