@@ -76,16 +76,25 @@ terraform {
                 script {
                     dir("${params.TERRAFORM_DIR}") {
                         // Run terraform plan and capture output
-                        def planOutput = sh(script: '''
+                        def planOutputFile = "terraform_plan_output.txt"
+                        sh """
                         export AWS_ACCESS_KEY_ID=${AWS_CREDENTIALS_USR}
                         export AWS_SECRET_ACCESS_KEY=${AWS_CREDENTIALS_PSW}
-                        terraform plan -out=tfplan
-                        ''', returnStdout: true).trim()
+                        terraform plan -out=tfplan | tee ${planOutputFile}
+                        """
                         
-                        // Send Slack notification with plan output, using a shortened message for Slack's limit
+                        // Display the output in Jenkins console
+                        echo readFile(planOutputFile)
+                        
+                        // Send the plan output file to Slack
                         slackSend(channel: '#terraform',
-                                  message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan Output: \n${planOutput.substring(0, 2000)}", // Limit to first 2000 characters
+                                  message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan Output:",
                                   token: SLACK_CREDENTIALS)
+                        
+                        // Upload the file to Slack (using Slack API or a direct method of your choice)
+                        sh """
+                        curl -F file=@${planOutputFile} -F channels=#terraform -F token=${SLACK_CREDENTIALS} https://slack.com/api/files.upload
+                        """
                     }
                 }
             }
@@ -146,7 +155,7 @@ terraform {
         aborted {
             script {
                 slackSend(channel: '#terraform',
-                          message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline aborted. Check the logs for details.",
+                          message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline aborted and job exited. Check the logs for details.",
                           token: SLACK_CREDENTIALS)
             }
         }
