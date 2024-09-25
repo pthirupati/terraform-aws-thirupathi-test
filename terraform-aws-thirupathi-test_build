@@ -81,31 +81,22 @@ stage('Terraform Plan') {
                 export AWS_SECRET_ACCESS_KEY=${AWS_CREDENTIALS_PSW}
                 terraform plan -out=tfplan
                 ''', returnStdout: true).trim()
-                
-                // Write output to a file for reference
+
+                // Write the output to a file for future reference
                 writeFile file: 'plan_output.txt', text: planOutput
 
-                // Send Slack notification with summary message before the output
-                slackSend(channel: '#terraform',
-                          message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform plan completed. Full output will be displayed below.",
-                          token: SLACK_CREDENTIALS)
-
-                // Print the entire plan output to Jenkins console
+                // Print the entire plan output to Jenkins console without any interruptions
                 echo "Terraform Plan Output:\n${planOutput}"
 
-                // Optional: Send plan output in Slack if necessary (disable if not needed)
-                /*
-                int chunkSize = 2000
-                for (int i = 0; i < planOutput.length(); i += chunkSize) {
-                    slackSend(channel: '#terraform',
-                              message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan Output:\n${planOutput.substring(i, Math.min(i + chunkSize, planOutput.length()))}",
-                              token: SLACK_CREDENTIALS)
-                }
-                */
+                // Send a summary Slack notification after the plan output is completely printed
+                slackSend(channel: '#terraform',
+                          message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform plan completed. Check the Jenkins logs for the full output.",
+                          token: SLACK_CREDENTIALS)
             }
         }
     }
 }
+
 
 
 
