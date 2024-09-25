@@ -154,7 +154,7 @@ terraform {
                 // Check for aborted builds
                 if (currentBuild.result == 'ABORTED') {
                     slackSend(channel: '#terraform',
-                              message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline aborted. Check the logs for details.",
+                              message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline aborted and job finished. Check the logs for details.",
                               token: SLACK_CREDENTIALS)
                 }
             }
