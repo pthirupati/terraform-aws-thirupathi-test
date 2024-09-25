@@ -11,6 +11,7 @@ pipeline {
         string(name: 'TERRAFORM_DIR', description: 'Specify the Terraform directory to run operations in (e.g., ec2, iam, vpc, eip)')
     }
 
+    stages {
         stage('Approval') {
             steps {
                 script {
@@ -94,7 +95,7 @@ terraform {
             }
         }
 
-        stage('Approval') {
+        stage('Approval for Apply') {
             steps {
                 script {
                     slackSend(channel: '#terraform', message: "Approval required for Terraform Apply in job `${env.JOB_NAME}`. Build ID: ${env.BUILD_ID}", token: SLACK_CREDENTIALS)
