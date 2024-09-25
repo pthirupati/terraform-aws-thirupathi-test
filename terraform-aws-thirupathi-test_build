@@ -15,7 +15,7 @@ pipeline {
         stage('Notify Start') {
             steps {
                 script {
-                    slackSend(channel: '#terraform-jenkins', 
+                    slackSend(channel: '#terraform', // Updated channel to match default
                               message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline started.",
                               token: SLACK_CREDENTIALS)
                 }
@@ -82,7 +82,7 @@ terraform {
                         ''', returnStdout: true).trim()
                         
                         // Send Slack notification with plan output
-                        slackSend(channel: '#terraform-jenkins', 
+                        slackSend(channel: '#terraform', // Updated channel to match default
                                   message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan Output:\n${planOutput}",
                                   token: SLACK_CREDENTIALS)
                     }
@@ -97,7 +97,7 @@ terraform {
                     def approval = input message: inputMessage, ok: 'Proceed'
 
                     // Send Slack notification for approval
-                    slackSend(channel: '#terraform-jenkins', 
+                    slackSend(channel: '#terraform', // Updated channel to match default
                               message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Approval received: ${approval}",
                               token: SLACK_CREDENTIALS)
                 }
@@ -115,7 +115,7 @@ terraform {
                         ''', returnStdout: true).trim()
                         
                         // Send Slack notification with apply output and state file
-                        slackSend(channel: '#terraform-jenkins', 
+                        slackSend(channel: '#terraform', // Updated channel to match default
                                   message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Apply Output:\n${applyOutput}\nState file: s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate",
                                   token: SLACK_CREDENTIALS)
                     }
@@ -127,7 +127,7 @@ terraform {
     post {
         success {
             script {
-                slackSend(channel: '#terraform-jenkins', 
+                slackSend(channel: '#terraform', // Updated channel to match default
                           message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline succeeded! State file: s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate",
                           token: SLACK_CREDENTIALS)
             }
@@ -135,7 +135,7 @@ terraform {
         }
         failure {
             script {
-                slackSend(channel: '#terraform-jenkins', 
+                slackSend(channel: '#terraform', // Updated channel to match default
                           message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline failed. Check the logs for details.",
                           token: SLACK_CREDENTIALS)
             }
@@ -146,12 +146,12 @@ terraform {
                 // Clean workspace
                 cleanWs()
                 // Notify completion
-                slackSend(channel: '#terraform-jenkins', 
+                slackSend(channel: '#terraform', // Updated channel to match default
                           message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline has completed execution.",
                           token: SLACK_CREDENTIALS)
                 // Check for aborted builds
                 if (currentBuild.result == 'ABORTED') {
-                    slackSend(channel: '#terraform-jenkins', 
+                    slackSend(channel: '#terraform', // Updated channel to match default
                               message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline aborted. Check the logs for details.",
                               token: SLACK_CREDENTIALS)
                 }
