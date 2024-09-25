@@ -4,7 +4,7 @@ pipeline {
     environment {
         AWS_CREDENTIALS = credentials('aws_secret_and_access') // Jenkins credentials ID for AWS
         TF_IN_AUTOMATION = 'true' // Specifies that Terraform runs in automation mode
-        SLACK_WEBHOOK_URL = credentials('slack_webhook') // Assuming you store your webhook in Jenkins credentials
+        SLACK_WEBHOOK_URL = credentials('slack-webhook') // Assuming you store your webhook in Jenkins credentials
     }
 
     parameters {
@@ -26,8 +26,13 @@ pipeline {
                     // Convert the message to JSON
                     def jsonMessage = groovy.json.JsonOutput.toJson(message)
                     
+                    // Create a temporary file to hold the JSON payload
+                    writeFile(file: 'payload.json', text: jsonMessage)
+
                     // Send the notification to Slack
-                    sh "curl -X POST -H 'Content-type: application/json' --data '${jsonMessage}' ${SLACK_WEBHOOK_URL}"
+                    sh """
+                    curl -X POST -H 'Content-type: application/json' --data @payload.json ${SLACK_WEBHOOK_URL}
+                    """
                 }
             }
         }
