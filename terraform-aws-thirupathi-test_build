@@ -15,18 +15,23 @@ pipeline {
         stage('Start Notification') {
             steps {
                 script {
-                    def message = """
-                    {
-                        "text": "Pipeline Notification: *${env.JOB_NAME} #${env.BUILD_NUMBER}* has started for Terraform Directory: *${params.TERRAFORM_DIR}*",
-                        "attachments": [
-                            {
-                                "color": "#36a64f", // Green color for "Started"
-                                "text": "The Terraform pipeline is starting."
-                            }
+                    def message = [
+                        text: "Pipeline Notification: *${env.JOB_NAME} #${env.BUILD_NUMBER}* has started for Terraform Directory: *${params.TERRAFORM_DIR}*",
+                        attachments: [
+                            [
+                                color: "#36a64f", // Green color for "Started"
+                                text: "The Terraform pipeline is starting."
+                            ]
                         ]
-                    }
-                    """
-                    sh "curl -X POST -H 'Content-type: application/json' --data '${message}' ${SLACK_WEBHOOK_URL}"
+                    ]
+                    
+                    // Use the HTTP request plugin to send the message
+                    httpRequest(
+                        url: "${SLACK_WEBHOOK_URL}",
+                        httpMode: 'POST',
+                        contentType: 'APPLICATION_JSON',
+                        requestBody: groovy.json.JsonOutput.toJson(message)
+                    )
                 }
             }
         }
@@ -97,25 +102,30 @@ terraform {
         stage('Approval') {
             steps {
                 script {
-                    def approvalMessage = """
-                    {
-                        "text": "Approval Required: The Terraform pipeline is waiting for approval.",
-                        "attachments": [
-                            {
-                                "color": "#ffcc00", // Yellow color for "Approval Required"
-                                "text": "Terraform Directory: *${params.TERRAFORM_DIR}*",
-                                "fields": [
-                                    {
-                                        "title": "State File",
-                                        "value": "<https://s3.amazonaws.com/terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate|Click Here>",
-                                        "short": false
-                                    }
+                    def approvalMessage = [
+                        text: "Approval Required: The Terraform pipeline is waiting for approval.",
+                        attachments: [
+                            [
+                                color: "#ffcc00", // Yellow color for "Approval Required"
+                                text: "Terraform Directory: *${params.TERRAFORM_DIR}*",
+                                fields: [
+                                    [
+                                        title: "State File",
+                                        value: "<https://s3.amazonaws.com/terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate|Click Here>",
+                                        short: false
+                                    ]
                                 ]
-                            }
+                            ]
                         ]
-                    }
-                    """
-                    sh "curl -X POST -H 'Content-type: application/json' --data '${approvalMessage}' ${SLACK_WEBHOOK_URL}"
+                    ]
+                    
+                    httpRequest(
+                        url: "${SLACK_WEBHOOK_URL}",
+                        httpMode: 'POST',
+                        contentType: 'APPLICATION_JSON',
+                        requestBody: groovy.json.JsonOutput.toJson(approvalMessage)
+                    )
+                    
                     input message: 'Do you want to proceed with Terraform Apply?', ok: 'Proceed'
                 }
             }
@@ -140,78 +150,90 @@ terraform {
         success {
             script {
                 def outputs = sh(script: "cd ${params.TERRAFORM_DIR} && terraform output -json", returnStdout: true).trim()
-                def successMessage = """
-                {
-                    "text": "Pipeline Succeeded: *${env.JOB_NAME} #${env.BUILD_NUMBER}* has successfully completed.",
-                    "attachments": [
-                        {
-                            "color": "#36a64f", // Green color for "Success"
-                            "text": "Terraform Directory: *${params.TERRAFORM_DIR}*",
-                            "fields": [
-                                {
-                                    "title": "State File",
-                                    "value": "<https://s3.amazonaws.com/terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate|Click Here>",
-                                    "short": false
-                                },
-                                {
-                                    "title": "Resources Created:",
-                                    "value": "```${outputs}```",
-                                    "short": false
+                def successMessage = [
+                    text: "Pipeline Succeeded: *${env.JOB_NAME} #${env.BUILD_NUMBER}* has successfully completed.",
+                    attachments: [
+                        [
+                            color: "#36a64f", // Green color for "Success"
+                            text: "Terraform Directory: *${params.TERRAFORM_DIR}*",
+                            fields: [
+                                [
+                                    title: "State File",
+                                    value: "<https://s3.amazonaws.com/terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate|Click Here>",
+                                    short: false
+                                ],
+                                [
+                                    title: "Resources Created:",
+                                    value: "```${outputs}```",
+                                    short: false
                                 }
                             ]
-                        }
+                        ]
                     ]
-                }
-                """
-                sh "curl -X POST -H 'Content-type: application/json' --data '${successMessage}' ${SLACK_WEBHOOK_URL}"
+                ]
+                
+                httpRequest(
+                    url: "${SLACK_WEBHOOK_URL}",
+                    httpMode: 'POST',
+                    contentType: 'APPLICATION_JSON',
+                    requestBody: groovy.json.JsonOutput.toJson(successMessage)
+                )
                 echo 'Pipeline succeeded!'
             }
         }
 
         failure {
             script {
-                def failureMessage = """
-                {
-                    "text": "Pipeline Failed: *${env.JOB_NAME} #${env.BUILD_NUMBER}* has failed.",
-                    "attachments": [
-                        {
-                            "color": "#ff0000", // Red color for "Failure"
-                            "text": "Terraform Directory: *${params.TERRAFORM_DIR}*",
-                            "fields": [
-                                {
-                                    "title": "Error",
-                                    "value": "```${currentBuild.rawBuild.log(50).join('\\n')}```",
-                                    "short": false
+                def failureMessage = [
+                    text: "Pipeline Failed: *${env.JOB_NAME} #${env.BUILD_NUMBER}* has failed.",
+                    attachments: [
+                        [
+                            color: "#ff0000", // Red color for "Failure"
+                            text: "Terraform Directory: *${params.TERRAFORM_DIR}*",
+                            fields: [
+                                [
+                                    title: "Error",
+                                    value: "```${currentBuild.rawBuild.log(50).join('\\n')}```",
+                                    short: false
                                 },
-                                {
-                                    "title": "State File",
-                                    "value": "<https://s3.amazonaws.com/terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate|Click Here>",
-                                    "short": false
+                                [
+                                    title: "State File",
+                                    value: "<https://s3.amazonaws.com/terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate|Click Here>",
+                                    short: false
                                 }
                             ]
-                        }
+                        ]
                     ]
-                }
-                """
-                sh "curl -X POST -H 'Content-type: application/json' --data '${failureMessage}' ${SLACK_WEBHOOK_URL}"
+                ]
+                
+                httpRequest(
+                    url: "${SLACK_WEBHOOK_URL}",
+                    httpMode: 'POST',
+                    contentType: 'APPLICATION_JSON',
+                    requestBody: groovy.json.JsonOutput.toJson(failureMessage)
+                )
                 echo 'Pipeline failed.'
             }
         }
 
         aborted {
             script {
-                def abortedMessage = """
-                {
-                    "text": "Pipeline Aborted: *${env.JOB_NAME} #${env.BUILD_NUMBER}* has been aborted.",
-                    "attachments": [
-                        {
-                            "color": "#ffcc00", // Yellow color for "Aborted"
-                            "text": "Terraform Directory: *${params.TERRAFORM_DIR}*"
-                        }
+                def abortedMessage = [
+                    text: "Pipeline Aborted: *${env.JOB_NAME} #${env.BUILD_NUMBER}* has been aborted.",
+                    attachments: [
+                        [
+                            color: "#ffcc00", // Yellow color for "Aborted"
+                            text: "Terraform Directory: *${params.TERRAFORM_DIR}*"
+                        ]
                     ]
-                }
-                """
-                sh "curl -X POST -H 'Content-type: application/json' --data '${abortedMessage}' ${SLACK_WEBHOOK_URL}"
+                ]
+                
+                httpRequest(
+                    url: "${SLACK_WEBHOOK_URL}",
+                    httpMode: 'POST',
+                    contentType: 'APPLICATION_JSON',
+                    requestBody: groovy.json.JsonOutput.toJson(abortedMessage)
+                )
             }
         }
 
