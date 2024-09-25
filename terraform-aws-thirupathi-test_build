@@ -82,9 +82,12 @@ terraform {
                         terraform plan -out=tfplan
                         ''', returnStdout: true).trim()
                         
-                        // Send Slack notification with plan output, using a shortened message for Slack's limit
+                        // Write output to a file for reference
+                        writeFile file: 'plan_output.txt', text: planOutput
+
+                        // Send Slack notification with plan output, up to 2000 characters
                         slackSend(channel: '#terraform',
-                                  message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan Output: \n${planOutput.substring(0, 2000)}", // Limit to first 2000 characters
+                                  message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Terraform Plan Output:\n${planOutput.take(2000)}", // Limit to first 2000 characters
                                   token: SLACK_CREDENTIALS)
                     }
                 }
@@ -94,14 +97,18 @@ terraform {
         stage('Approval') {
             steps {
                 script {
-                    def inputMessage = "Do you want to proceed with Terraform Apply? Please check the plan output above."
                     // Notify Slack about the approval request
                     slackSend(channel: '#terraform',
-                              message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Approval needed for Terraform Apply.",
+                              message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Approval needed for Terraform Apply. Check the plan output in Jenkins.",
                               token: SLACK_CREDENTIALS)
 
+                    def inputMessage = "Do you want to proceed with Terraform Apply? Please check the plan output above."
                     // Wait for user input
-                    def approval = input message: inputMessage, ok: 'Proceed'
+                    def approval = input message: inputMessage, ok: 'Proceed', timeout: 3600 // 1 hour timeout
+                    // Notify Slack about the approval decision
+                    slackSend(channel: '#terraform',
+                              message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Approval decision: ${approval ? 'Approved' : 'Aborted'}",
+                              token: SLACK_CREDENTIALS)
                 }
             }
         }
