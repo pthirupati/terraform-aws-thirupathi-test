@@ -113,37 +113,14 @@ terraform {
         stage('Approval') {
             steps {
                 script {
-                    def inputMessage = "Job: *${env.JOB_NAME}* | Build ID: *${env.BUILD_ID}* | Do you want to proceed with Terraform Apply? Please check the tfplan file above."
-                    
-                    // Send an interactive message to Slack with approval buttons
+                    def inputMessage = "Do you want to proceed with Terraform Apply? Please check the tfplan file above."
+                    // Notify Slack about the approval request
                     slackSend(channel: '#terraform',
-                              message: inputMessage,
-                              attachments: [
-                                  [
-                                      "text": "Please approve or deny the deployment:",
-                                      "fallback": "You are unable to approve or deny",
-                                      "callback_id": "approval",
-                                      "actions": [
-                                          [
-                                              "name": "approve",
-                                              "text": "Approve",
-                                              "type": "button",
-                                              "value": "approved"
-                                          ],
-                                          [
-                                              "name": "deny",
-                                              "text": "Deny",
-                                              "type": "button",
-                                              "value": "denied"
-                                          ]
-                                      ]
-                                  ]
-                              ],
+                              message: "Job: *${env.JOB_NAME}* | Build ID: *${env.BUILD_ID}* | Approval needed for Terraform Apply.",
                               token: SLACK_CREDENTIALS)
 
-                    // Here, we would ideally wait for the response from Slack webhook
-                    // But since Jenkins doesn’t support blocking, the response handling
-                    // should be implemented in the webhook handler (as previously discussed).
+                    // Wait for user input
+                    def approval = input message: inputMessage, ok: 'Proceed'
                 }
             }
         }
@@ -152,25 +129,16 @@ terraform {
             steps {
                 script {
                     dir("${params.TERRAFORM_DIR}") {
-                        // Add logic here to check if approval was granted from the Slack response
-                        def approvalResponse = checkApprovalResponse() // Implement this logic in your webhook handler
-
-                        if (approvalResponse == 'approved') {
-                            def applyOutput = sh(script: '''
-                            export AWS_ACCESS_KEY_ID=${AWS_CREDENTIALS_USR}
-                            export AWS_SECRET_ACCESS_KEY=${AWS_CREDENTIALS_PSW}
-                            terraform apply -auto-approve tfplan
-                            ''', returnStdout: true).trim()
-                            
-                            // Send Slack notification with apply output and state file
-                            slackSend(channel: '#terraform',
-                                      message: "Job: *${env.JOB_NAME}* | Build ID: *${env.BUILD_ID}* | Terraform Apply Output: \n${applyOutput} \nState file: s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate",
-                                      token: SLACK_CREDENTIALS)
-                        } else {
-                            slackSend(channel: '#terraform',
-                                      message: "Job: *${env.JOB_NAME}* | Build ID: *${env.BUILD_ID}* | Terraform Apply was denied by user.",
-                                      token: SLACK_CREDENTIALS)
-                        }
+                        def applyOutput = sh(script: '''
+                        export AWS_ACCESS_KEY_ID=${AWS_CREDENTIALS_USR}
+                        export AWS_SECRET_ACCESS_KEY=${AWS_CREDENTIALS_PSW}
+                        terraform apply -auto-approve tfplan
+                        ''', returnStdout: true).trim()
+                        
+                        // Send Slack notification with apply output and state file
+                        slackSend(channel: '#terraform',
+                                  message: "Job: *${env.JOB_NAME}* | Build ID: *${env.BUILD_ID}* | Terraform Apply Output: \n${applyOutput} \nState file: s3://terraform-aws-thirupathi-test/${params.TERRAFORM_DIR}/state/terraform.tfstate",
+                                  token: SLACK_CREDENTIALS)
                     }
                 }
             }
