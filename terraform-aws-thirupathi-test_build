@@ -12,6 +12,16 @@ pipeline {
     }
 
     stages {
+        stage('Notify Start') {
+            steps {
+                script {
+                    slackSend(channel: '#terraform-jenkins', 
+                              message: "Job: ${env.JOB_NAME} | Build ID: ${env.BUILD_ID} | Pipeline started.",
+                              token: SLACK_CREDENTIALS)
+                }
+            }
+        }
+
         stage('Checkout') {
             steps {
                 script {
