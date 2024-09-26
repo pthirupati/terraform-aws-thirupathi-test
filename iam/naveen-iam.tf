@@ -4,6 +4,6 @@ provider "aws" {
 
 # Create an IAM User
 resource "aws_iam_user" "example_user" {
-  name = "naveen"  # Replace with your desired user name
+  name = "Pradeep"  # Replace with your desired user name
   path = "/"
 }
